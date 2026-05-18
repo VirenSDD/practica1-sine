@@ -12,9 +12,9 @@ Mark tasks `[x]` when done. Work **one task at a time**.
 - [x] **T0.2** [Executor] Create this `TASKS.md` file
 
 ## Phase 1 — Crawler
-- [ ] **T1.1** [Researcher] Identify Wikipedia disease list URLs and confirm which sections to scrape (symptoms, causes, treatment). Write findings in `docs/research/crawler_sources.md`.
-- [ ] **T1.2** [Executor] Implement `RAGMED_crawler` in `src/ragmed_crawler.py`
-- [ ] **T1.3** [Executor] Run crawler with `max_diseases=20`, inspect `diseases.txt`, fix quality issues
+- [x] **T1.1** [Researcher] Identify Wikipedia disease list URLs and confirm which sections to scrape (symptoms, causes, treatment). Write findings in `docs/research/crawler_sources.md`.
+- [x] **T1.2** [Executor] Implement `RAGMED_crawler` in `src/ragmed_crawler.py`
+- [x] **T1.3** [Executor] Run crawler with `max_diseases=20`, inspect `diseases.txt`, fix quality issues
 
 ## Phase 2 — Information Retrieval
 - [ ] **T2.1** [Researcher] Compare IR options (BM25, TF-IDF, Jaccard, hybrid). Write findings in `docs/research/ir_comparison.md`.
@@ -31,8 +31,8 @@ Mark tasks `[x]` when done. Work **one task at a time**.
 - [ ] **T4.2** [Executor] Test 2 different chunk sizes, compare retrieval quality
 
 ## Phase 5 — Report (Memoria)
-- [ ] **T5.1** [Writer] Draft Section 1: Introducción
-- [ ] **T5.2** [Writer] Draft Section 2: Módulo Crawler
+- [x] **T5.1** [Writer] Draft Section 1: Introducción
+- [x] **T5.2** [Writer] Draft Section 2: Módulo Crawler
 - [ ] **T5.3** [Writer] Draft Section 3: Sistema de Recuperación de Información
 - [ ] **T5.4** [Writer] Draft Section 4: Evaluación
 - [ ] **T5.5** [Writer] Draft Section 5 (optional): Experimentos adicionales

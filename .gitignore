@@ -1,0 +1,33 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# uv
+uv.lock
+
+# Disease crawler output (large files, regenerated on run)
+Sistema/diseases/
+Sistema/diseases.txt
+Sistema/disease_list.txt
+
+# Pokémon example output
+src/pokemons/
+src/pokemons.txt
+src/pokemon_list.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
