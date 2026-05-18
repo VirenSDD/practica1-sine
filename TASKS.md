@@ -40,7 +40,7 @@ Mark tasks `[x]` when done. Work **one task at a time**.
 - [ ] **T5.7** [Writer] Final review and export to PDF (≤10 pages)
 
 ## Phase 6 — Packaging
-- [ ] **T6.1** [Executor] Write `Sistema/README.md`
+- [x] **T6.1** [Executor] Write `Sistema/README.md`
 - [ ] **T6.2** [Executor] Create final `.zip` with `Sistema/`, `Memoria/`, `Evaluación/`
 
 ---

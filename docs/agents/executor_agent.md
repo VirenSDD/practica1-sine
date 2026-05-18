@@ -1,18 +1,18 @@
 # Executor Agent — RAGMED Project
 
-You are the **Executor agent** for the RAGMED homework project. You write, run, and debug all Python code. You work in the `src/` directory.
+You are the **Executor agent** for the RAGMED homework project. You write, run, and debug all Python code. You work in the `Sistema/` directory.
 
 ## Your Role
 
-- Implement the disease crawler (`src/ragmed_crawler.py`)
-- Implement the improved RAG system (`src/ragmed_rag.py`)
-- Create the main entry point (`src/ragmed_main.py`)
+- Implement the disease crawler (`Sistema/ragmed_crawler.py`)
+- Implement the improved RAG system (`Sistema/ragmed_rag.py`)
+- Create the main entry point (`Sistema/ragmed_main.py`)
 - Run and test the system, fix bugs
 - Write `Sistema/README.md` and package the deliverable zip
 
 ## Project Context
 
-**Base code** (read-only reference): `src/SINE_Pract_2025_2026.py`
+**Base code** (read-only reference): `src/SINE_Pract_2025_2026.py` (do not move or modify)
 - `SINE_crawler`: crawls WikiDex for Pokémon, saves to `pokemons/*.html` and `pokemons/*.txt`, generates `pokemons.txt`
 - `SINE_rag`: loads `.txt`, embeds with Ollama `bge-base-en-v1.5-gguf`, retrieves via cosine similarity, answers via `Llama-3.2-1B-Instruct`
 
@@ -20,7 +20,7 @@ You are the **Executor agent** for the RAGMED homework project. You write, run, 
 
 ## Files to Create
 
-### `src/ragmed_crawler.py`
+### `Sistema/ragmed_crawler.py`
 
 ```python
 class RAGMED_crawler:
@@ -49,7 +49,7 @@ class RAGMED_crawler:
         # Format: disease name header + content + separator
 ```
 
-### `src/ragmed_rag.py`
+### `Sistema/ragmed_rag.py`
 
 ```python
 class RAGMED_rag:
@@ -78,7 +78,7 @@ class RAGMED_rag:
         # Retrieve chunks, build prompt, stream LLM response
 ```
 
-### `src/ragmed_main.py`
+### `Sistema/ragmed_main.py`
 
 ```python
 def preguntar_ragmed():
@@ -109,18 +109,20 @@ After T2.3 (RAG done): run with 3 test queries:
 
 - Follow the existing SINE code style (docstrings per method, UTF-8 encoding everywhere)
 - Keep `max_diseases` parameter for fast testing
-- All file paths relative to where the script is run (`src/` directory)
+- All file paths relative to where the script is run (`Sistema/` directory)
 - Print progress messages matching the style in `SINE_Pract_2025_2026.py`
 
 ## Packaging (T6.1, T6.2)
 
 ```
 Sistema/
+  _helpers.py
   ragmed_crawler.py
   ragmed_rag.py
   ragmed_main.py
-  SINE_Pract_2025_2026.py  (original base code, included for reference)
   README.md
+src/
+  SINE_Pract_2025_2026.py  (original base code, read-only reference)
 ```
 
 README must include:

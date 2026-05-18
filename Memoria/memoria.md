@@ -25,7 +25,7 @@ El resto del documento se organiza del siguiente modo. La sección 2 describe en
 
 Un crawler web es un programa automatizado que recorre páginas de internet siguiendo enlaces y extrae su contenido para construir un corpus de texto [1]. En el contexto de un sistema RAG, el crawler constituye la etapa de adquisición de datos: sin un corpus de calidad, los módulos de recuperación y generación no pueden ofrecer respuestas fundamentadas. La calidad del corpus —en términos de cobertura, limpieza y estructura— condiciona directamente la calidad de las respuestas finales del sistema.
 
-Para RAGMED se implementó la clase `RAGMED_crawler` en el fichero `src/ragmed_crawler.py`. El crawler cubre dos etapas: la descarga de la lista de enfermedades y la descarga del contenido individual de cada artículo.
+Para RAGMED se implementó la clase `RAGMED_crawler` en el fichero `Sistema/ragmed_crawler.py`. El crawler cubre dos etapas: la descarga de la lista de enfermedades y la descarga del contenido individual de cada artículo.
 
 <!-- TODO: add figure here — diagrama de flujo del crawler con las dos etapas -->
 
