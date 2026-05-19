@@ -1,11 +1,38 @@
 """
-Shared pure-utility functions for the RAGMED pipeline.
+Shared pure-utility functions and domain constants for the RAGMED pipeline.
 
 All functions here are stateless and have no side effects, making them easy
 to unit-test independently of the crawler and RAG modules.
 """
 
 import re
+from enum import Enum
+
+# ---------------------------------------------------------------------------
+# Domain constants
+# ---------------------------------------------------------------------------
+
+#: Placeholder written into corpus sections that have no Wikipedia content.
+NO_INFO = "(No information available.)"
+
+
+class SectionHeader(str, Enum):
+    """Section headers written by the crawler into the disease corpus.
+
+    Inheriting from ``str`` means enum members compare equal to their string
+    values and can be used directly wherever a plain string is expected.
+    ``__str__`` is overridden because Python 3.12+ changed the default
+    ``str(StrMixin | Enum)`` to return ``ClassName.member_name``.
+    """
+
+    SIGNS_AND_SYMPTOMS = "Signs and symptoms"
+    CAUSES = "Causes"
+    TREATMENT = "Treatment"
+    MANAGEMENT = "Management"
+    PREVENTION = "Prevention"
+
+    def __str__(self) -> str:
+        return self.value
 
 # Regex to detect h2-level headings in Wikipedia plain-text API extracts.
 # The API uses == Section Name == (with surrounding spaces) as markers.

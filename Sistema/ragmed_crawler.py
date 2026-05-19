@@ -9,7 +9,7 @@ import logging
 import os
 import random
 
-from _helpers import find_section, parse_sections, safe_filename
+from _helpers import NO_INFO, SectionHeader, find_section, parse_sections, safe_filename
 from ragmed_source import DiseaseSource
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -17,13 +17,9 @@ logger = logging.getLogger(__name__)
 
 _ALL_LETTERS = [chr(ord("A") + i) for i in range(26)]
 
-# ---------------------------------------------------------------------------
-# Domain-specific section name constants
-# ---------------------------------------------------------------------------
-
-_SYMPTOM_SECTIONS = ["Signs and symptoms"]
-_CAUSE_SECTIONS = ["Causes"]
-_TREATMENT_SECTIONS = ["Treatment", "Management", "Prevention"]
+_SYMPTOM_SECTIONS = [SectionHeader.SIGNS_AND_SYMPTOMS]
+_CAUSE_SECTIONS = [SectionHeader.CAUSES]
+_TREATMENT_SECTIONS = [SectionHeader.TREATMENT, SectionHeader.MANAGEMENT, SectionHeader.PREVENTION]
 
 
 class RAGMED_crawler:
@@ -138,15 +134,18 @@ class RAGMED_crawler:
 
         lead, sections = parse_sections(raw_text)
 
-        def _text(section_names: list[str]) -> str:
+        def _text(section_names: list[SectionHeader]) -> str:
             value = find_section(sections, section_names)
-            return value.strip() if value and value.strip() else "(No information available.)"
+            return value.strip() if value and value.strip() else NO_INFO
+
+        def _header(h: SectionHeader) -> str:
+            return f"{h}\n{'=' * len(h)}"
 
         parts = [
-            f"Lead: {lead.strip() or '(No information available.)'}",
-            f"Signs and symptoms\n{'=' * 18}\n{_text(_SYMPTOM_SECTIONS)}",
-            f"Causes\n{'=' * 6}\n{_text(_CAUSE_SECTIONS)}",
-            f"Treatment\n{'=' * 9}\n{_text(_TREATMENT_SECTIONS)}",
+            f"Lead: {lead.strip() or NO_INFO}",
+            f"{_header(SectionHeader.SIGNS_AND_SYMPTOMS)}\n{_text(_SYMPTOM_SECTIONS)}",
+            f"{_header(SectionHeader.CAUSES)}\n{_text(_CAUSE_SECTIONS)}",
+            f"{_header(SectionHeader.TREATMENT)}\n{_text(_TREATMENT_SECTIONS)}",
         ]
 
         with open(output_path, "w", encoding="utf-8") as fh:
