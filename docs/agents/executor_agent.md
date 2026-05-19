@@ -81,7 +81,7 @@ class RAGMED_rag:
 ### `Sistema/ragmed_main.py`
 
 ```python
-def preguntar_ragmed():
+def run_ragmed():
     # 1. Run crawler (or skip if diseases.txt exists)
     # 2. Create RAGMED_rag instance
     # 3. Loop: ask user for symptoms, call ask_question, repeat until 'stop'

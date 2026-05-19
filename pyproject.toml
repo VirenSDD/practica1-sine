@@ -12,9 +12,10 @@ dependencies = [
 ]
 
 [project.scripts]
-ragmed = "ragmed_main:preguntar_ragmed"
+ragmed = "ragmed_main:run_ragmed"
 
 [tool.uv]
+package = true
 dev-dependencies = [
     "ruff>=0.9.0",
 ]

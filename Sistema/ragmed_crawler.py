@@ -5,6 +5,7 @@ diseases.txt file for the RAGMED RAG system to consume.
 
 import logging
 import os
+import random
 import time
 from urllib.parse import unquote
 
@@ -56,6 +57,7 @@ class RAGMED_crawler:
         self,
         letters: list[str] | None = None,
         output_file: str = "disease_list.txt",
+        shuffle: bool = False,
     ) -> list[str]:
         """
         Scrape the Wikipedia alphabetical disease-list pages and save names to a file.
@@ -63,6 +65,9 @@ class RAGMED_crawler:
         :param letters: Uppercase letters to scrape, e.g. ``["A", "B"]``.
             Defaults to all 26 letters of the alphabet.
         :param output_file: Path of the text file where disease names are saved.
+        :param shuffle: If ``True``, randomise the list before applying ``max_diseases``,
+            so repeated runs with a cap return a varied sample instead of always
+            starting from the beginning of letter A.
         :return: List of discovered disease names.
         """
         if letters is None:
@@ -107,6 +112,9 @@ class RAGMED_crawler:
                     diseases.append(name)
 
             time.sleep(_RATE_LIMIT)
+
+        if shuffle:
+            random.shuffle(diseases)
 
         if self.max_diseases is not None:
             diseases = diseases[: self.max_diseases]

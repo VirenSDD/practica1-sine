@@ -39,41 +39,36 @@ Asegúrate de que el servicio Ollama está activo antes de ejecutar el sistema (
 
 ---
 
-## Generar el corpus de enfermedades
-
-El crawler descarga artículos de Wikipedia y los estructura en `diseases.txt`. Ejecutar desde `Sistema/`:
-
-```bash
-cd Sistema
-uv run python -c "
-from ragmed_crawler import RAGMED_crawler
-c = RAGMED_crawler(max_diseases=50)   # ajustar según necesidad
-c.download_disease_list(output_file='disease_list.txt')
-c.download_disease_info()
-for name in c.disease_list:
-    c.clean_disease_page(name)
-c.generate_disease_summary(output_file='diseases.txt')
-"
-```
-
-Para el corpus completo (A–Z), eliminar el argumento `max_diseases`. El proceso tarda varios minutos por el límite de velocidad de la API de Wikipedia.
-
----
-
 ## Ejecutar el sistema
 
+Desde la raíz del repositorio (el `pyproject.toml` está ahí):
+
 ```bash
-cd Sistema
-uv run python ragmed_main.py
+# Corpus completo A–Z (tarda varios minutos por el límite de velocidad de Wikipedia):
+uv run python Sistema/ragmed_main.py
+
+# Muestra aleatoria de 50 enfermedades de todo el alfabeto:
+uv run python Sistema/ragmed_main.py --max-diseases 50 --shuffle
+
+# Prueba rápida — 20 enfermedades aleatorias, solo letras A y B:
+uv run python Sistema/ragmed_main.py --max-diseases 20 --letters A B --shuffle
+
+# Saltar la descarga si el corpus ya existe:
+uv run python Sistema/ragmed_main.py --skip-crawler
 ```
 
-El sistema entra en un bucle interactivo. Introduce síntomas separados por comas:
+### Opciones de línea de comandos
 
-```
-Introduce síntomas (o 'stop' para salir): fever, stiff neck, headache
-```
+| Flag | Por defecto | Descripción |
+|---|---|---|
+| `--max-diseases N` | todas | Limita el número de enfermedades a descargar |
+| `--letters A B …` | A–Z | Restringe la descarga a esas letras del índice |
+| `--shuffle` | desactivado | Aleatoriza la lista antes de aplicar `--max-diseases` |
+| `--corpus-file PATH` | `diseases.txt` | Ruta del corpus consolidado de salida |
+| `--list-file PATH` | `disease_list.txt` | Ruta de la lista de nombres de enfermedades |
+| `--skip-crawler` | desactivado | Omite la descarga y usa el corpus existente |
 
-El sistema recuperará los fragmentos de `diseases.txt` más relevantes y generará una respuesta con el LLM.
+En Phase 1, el programa ejecuta el crawler y termina. En Phase 2 añadirá el bucle interactivo del chatbot.
 
 ---
 
