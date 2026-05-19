@@ -17,9 +17,9 @@ Mark tasks `[x]` when done. Work **one task at a time**.
 - [x] **T1.3** [Executor] Run crawler with `max_diseases=20`, inspect `diseases.txt`, fix quality issues
 
 ## Phase 2 — Information Retrieval
-- [ ] **T2.1** [Researcher] Compare IR options (BM25, TF-IDF, Jaccard, hybrid). Write findings in `docs/research/ir_comparison.md`.
-- [ ] **T2.2** [Executor] Implement `RAGMED_rag` in `src/ragmed_rag.py` with hybrid retrieval
-- [ ] **T2.3** [Executor] Create `src/ragmed_main.py` and test with 3 symptom queries
+- [x] **T2.1** [Researcher] Compare IR options (BM25, TF-IDF, Jaccard, hybrid). Write findings in `docs/research/ir_comparison.md`.
+- [x] **T2.2** [Executor] Implement `RAGMED_rag` in `src/ragmed_rag.py` with hybrid retrieval
+- [x] **T2.3** [Executor] Create `src/ragmed_main.py` and test with 3 symptom queries
 
 ## Phase 3 — Evaluation
 - [ ] **T3.1** [Researcher + PO] Design 10 evaluation questions with ground-truth answers. Save to `Evaluación/preguntas_ground_truth.md`.
@@ -33,7 +33,7 @@ Mark tasks `[x]` when done. Work **one task at a time**.
 ## Phase 5 — Report (Memoria)
 - [x] **T5.1** [Writer] Draft Section 1: Introducción
 - [x] **T5.2** [Writer] Draft Section 2: Módulo Crawler
-- [ ] **T5.3** [Writer] Draft Section 3: Sistema de Recuperación de Información
+- [x] **T5.3** [Writer] Draft Section 3: Sistema de Recuperación de Información
 - [ ] **T5.4** [Writer] Draft Section 4: Evaluación
 - [ ] **T5.5** [Writer] Draft Section 5 (optional): Experimentos adicionales
 - [ ] **T5.6** [Writer] Compile IEEE references in `Memoria/referencias.md`

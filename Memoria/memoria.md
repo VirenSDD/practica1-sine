@@ -113,9 +113,9 @@ Durante el desarrollo del crawler se identificaron tres categorías de problemas
 
 Toda la actividad del crawler se registra mediante el módulo estándar `logging` de Python, con nivel `INFO` para el progreso normal y `WARNING`/`ERROR` para situaciones de fallo. Se evitó el uso de sentencias `print` directas para facilitar la integración futura del módulo con sistemas de orquestación que capturen logs estructurados.
 
-#### 2.3.4 Resultados de la ejecución de prueba
+#### 2.3.4 Resultados de la ejecución
 
-Se realizó una ejecución de prueba con los primeros 20 nombres de la letra A (`max_diseases=20`). De estas 20 enfermedades, **17 se descargaron correctamente** con al menos uno de los cuatro campos completos. Las 3 restantes se omitieron por agotamiento del número máximo de reintentos ante respuestas 429 persistentes; en los tres casos se trataba de síndromes raros con artículos de Wikipedia muy breves o prácticamente vacíos, por lo que su exclusión no supone una pérdida significativa para el corpus.
+Se ejecutó el crawler sobre el índice alfabético completo de Wikipedia (letras A–Z). El proceso identificó **5.390 nombres de enfermedades** en las páginas de índice y descargó con éxito el artículo de **4.312 de ellas**, generando un corpus consolidado de 146.806 líneas en `diseases.txt`. Las 1.078 entradas restantes corresponden principalmente a artículos vacíos, redirecciones a páginas de desambiguación o síndromes muy raros con escasa documentación en Wikipedia, donde la API devuelve un extracto nulo o la página está marcada como `missing`.
 
 El contraste de calidad entre artículos es notable. Una enfermedad bien documentada como Aarskog syndrome dispone de párrafo inicial detallado, sección de síntomas extensa con subsecciones, y sección de tratamiento; el bloque resultante en `diseases.txt` es rico y directamente útil para la recuperación. En cambio, un síndrome raro como Aagenaes syndrome solo tiene información en el párrafo inicial y en la sección de tratamiento, quedando los campos de síntomas y causas marcados como `(No information available.)`. Esta heterogeneidad es inherente a la fuente de datos y deberá tenerse en cuenta en la evaluación del sistema completo.
 
@@ -127,7 +127,71 @@ El contraste de calidad entre artículos es notable. Una enfermedad bien documen
 
 ## 3. Módulo de Recuperación de Información
 
-> *[Sección pendiente de redacción — T1.2]*
+El módulo de recuperación de información es el componente central de todo sistema RAG: determina qué fragmentos del corpus se proporcionan al modelo de lenguaje como contexto y, por tanto, condiciona directamente la calidad de la respuesta generada. En RAGMED, este módulo está implementado en la clase `RAGMED_rag` del fichero `Sistema/ragmed_rag.py` y extiende el sistema de referencia con tres mejoras sustanciales: una estrategia de fragmentación semántica, un conjunto ampliado de funciones de similitud, y un modo de recuperación híbrida que combina métodos dispersos y densos.
+
+### 3.1 Sistema base: similitud coseno sobre embeddings densos
+
+La clase de referencia `SINE_rag`, proporcionada en `src/SINE_Pract_2025_2026.py`, implementa el esquema clásico de recuperación densa mediante embeddings: cada línea del corpus se convierte en un vector de alta dimensión usando el modelo `bge-base-en-v1.5-gguf` servido a través de Ollama, y la relevancia de cada fragmento respecto a una consulta se mide como la similitud coseno entre el vector de la consulta y el vector del fragmento [1, §7.1.2, pp. 237–242]. Dado que el modelo devuelve vectores L2-normalizados de 768 dimensiones, la similitud coseno se reduce al producto escalar, lo que simplifica el cómputo.
+
+Este enfoque presenta ventajas claras en el dominio médico: captura equivalencias semánticas de forma automática, de modo que una consulta que contiene "shortness of breath" recupera correctamente fragmentos que emplean "dyspnea", sin necesidad de expansión de consultas ni diccionarios de sinónimos. El modelo es también robusto a la variación estilística entre editores de Wikipedia, que utilizan terminología heterogénea para describir los mismos fenómenos clínicos [1, §7.1.2].
+
+Sin embargo, la recuperación densa pura adolece de limitaciones relevantes para el dominio médico. Términos clínicos muy precisos y poco frecuentes —como "Koplik spots", "petechiae" o "haemoptysis"— pueden no estar bien representados en el espacio latente de un modelo de embeddings de propósito general, de forma que su ocurrencia exacta en un fragmento no se traduce en una puntuación alta. Además, el modelo no tiene en cuenta la frecuencia de término: un fragmento que menciona "fever" una sola vez recibe una representación vectorial similar a otro que lo menciona veinte veces si el contexto circundante es parecido. Por último, el proceso de embedding de todo el corpus en tiempo de indexación tiene un coste computacional no despreciable al servirse a través de un modelo neuronal local.
+
+### 3.2 Mejora implementada: recuperación híbrida BM25 + embedding coseno
+
+La principal mejora respecto al sistema de referencia es la introducción de un modo de recuperación híbrida que combina la puntuación de BM25 (Okapi BM25) con la similitud coseno sobre embeddings densos. La motivación es la complementariedad de los dos componentes: el reto de recuperación en RAGMED presenta simultáneamente un desafío léxico y un desafío semántico [1, §7.4, p. 267].
+
+Por un lado, los artículos de Wikipedia sobre enfermedades emplean vocabulario clínico preciso y estandarizado. Cuando la consulta del usuario contiene un término específico —"haemoptysis", "petechiae", "cyanosis"— la señal más discriminativa es la coincidencia léxica exacta en la sección de síntomas del artículo correspondiente. BM25 sobresale en este escenario: su componente de frecuencia inversa de documento (IDF) asigna un peso muy elevado a los términos raros y altamente discriminativos, y su parámetro de saturación de frecuencia de término (`k1`) impide que un fragmento largo que menciona repetidamente un síntoma común supere a un fragmento más específico con variedad de síntomas. La normalización por longitud (`b`) es igualmente necesaria porque las secciones de Wikipedia varían notablemente en extensión: un párrafo inicial puede tener tres oraciones, mientras que una sección de síntomas puede ocupar varios párrafos [1, §7.2.2, pp. 250–252].
+
+Por otro lado, los usuarios que describen sus síntomas no siempre emplean terminología clínica. "Difficulty breathing" o "shortness of breath" son descripciones coloquiales del fenómeno que los artículos médicos denominan "dyspnea". "Yellowing of the skin" corresponde a "jaundice". Un sistema BM25 puro asignaría puntuación cero a estos pares de términos no coincidentes. Los embeddings densos resuelven exactamente esta brecha semántica: el modelo `bge-base-en-v1.5-gguf` coloca en regiones próximas del espacio vectorial las expresiones que denotan el mismo fenómeno, independientemente de la forma superficial.
+
+La función de puntuación híbrida implementada en `RAGMED_rag.retrieve_function` combina ambas señales mediante una suma ponderada:
+
+$$\text{score\_hybrid}(Q, D) = \alpha \cdot \text{coseno\_emb}(Q, D) + (1 - \alpha) \cdot \text{BM25\_norm}(Q, D)$$
+
+donde $\alpha \in [0, 1]$ es el parámetro de mezcla (valor por defecto: 0,5), `coseno_emb` es la similitud coseno entre los embeddings de la consulta y el fragmento (rango $[0, 1]$ para embeddings no negativos), y `BM25_norm` es la puntuación BM25 normalizada por el máximo del lote para llevarla al intervalo $[0, 1]$:
+
+$$\text{BM25\_norm}(Q, D) = \frac{\text{BM25}(Q, D)}{\max_{D' \in \mathcal{C}} \text{BM25}(Q, D') + \varepsilon}$$
+
+con $\varepsilon = 10^{-8}$ para evitar la división por cero. La normalización por máximo preserva el ordenamiento relativo de las puntuaciones BM25 dentro del lote y las hace directamente comparables a las similitudes coseno, que ya están acotadas en $[0, 1]$ [1, §7.4, p. 267].
+
+La implementación utiliza la variante `BM25Okapi` de la biblioteca `rank_bm25` [6], con parámetros por defecto `k1=1.5`, `b=0.75`. La tokenización del corpus y de la consulta se realiza de forma consistente: conversión a minúsculas y separación por espacios. El índice BM25 se construye una sola vez en el método `load_dataset`, junto con el proceso de embedding del corpus, y queda disponible en memoria para todas las consultas posteriores.
+
+### 3.3 Funciones de similitud implementadas
+
+`RAGMED_rag` expone cuatro funciones de similitud individuales más el modo híbrido, seleccionables mediante el parámetro `similarity_fn` del constructor o la opción `--similarity-fn` de la interfaz de línea de comandos. La Tabla 1 resume sus características y su adecuación al dominio médico.
+
+| Función | Tipo | Descripción breve | Idoneidad para RAGMED |
+|---|---|---|---|
+| Coseno (denso) | Densa | Ángulo entre vectores de embedding | Buena (maneja sinónimos) |
+| BM25 (Okapi) | Dispersa | TF saturado + IDF + normaliz. longitud | Buena (términos exactos) |
+| Euclidiana | Densa | 1/(1+distancia L2) | Moderada |
+| Jaccard | Dispersa | Solapamiento de conjuntos de tokens | Débil |
+| Híbrida (BM25+coseno) | Mixta | Suma ponderada | **Óptima** |
+
+*Tabla 1: Funciones de similitud implementadas en RAGMED_rag y su adecuación al dominio médico.*
+
+La similitud euclidiana, definida como $1/(1+d_{\text{L2}})$, produce puntuaciones en el intervalo $(0, 1]$ y captura la misma señal semántica que el coseno cuando los vectores están L2-normalizados, con una degradación de rendimiento marginal que no justifica su preferencia sobre el coseno. La similitud de Jaccard opera sobre conjuntos de tokens únicos sin ponderación, lo que la priva de discriminación: el término "fever" (muy frecuente entre enfermedades) contribuye exactamente igual que "xerostomia" (altamente discriminativo), y la ausencia de señal semántica la convierte en la opción más débil de las cuatro para este dominio [1, §7.1.1, pp. 235–237]. Ambas funciones se incluyen con fines comparativos en la evaluación de la sección 4.
+
+### 3.4 Estrategia de chunking y parámetros de configuración
+
+A diferencia del sistema de referencia, que trata cada línea del fichero de corpus como un fragmento independiente, `RAGMED_rag` implementa una estrategia de fragmentación a nivel de sección. El método `_parse_chunks` analiza el fichero `diseases.txt` e identifica los bloques de enfermedad por su patrón de encabezado (`{Nombre}\n{'='*n}\n`); a continuación, `_extract_disease_chunks` genera hasta cuatro fragmentos por enfermedad, correspondientes a las secciones Lead, Signs and symptoms, Causes y Treatment. Cada fragmento se prefija con el nombre de la enfermedad siguiendo el patrón `{Nombre de la enfermedad} — {Sección}: {texto}`, lo que garantiza que el modelo de lenguaje disponga siempre de contexto para atribuir los síntomas a su enfermedad correspondiente.
+
+La fragmentación a nivel de sección ofrece una ventaja de precisión: cuando el usuario consulta por una lista de síntomas, el fragmento de "Signs and symptoms" de la enfermedad relevante contendrá exactamente el texto que describe esos síntomas, sin el ruido de la información etiológica o terapéutica que incluiría un bloque completo de enfermedad. Esta granularidad facilita tanto la recuperación BM25 (el IDF favorece los términos que aparecen en pocas secciones de síntomas) como la recuperación densa (el embedding de un fragmento temáticamente coherente es más representativo que el de un bloque heterogéneo). Los fragmentos cuyo texto es vacío o igual a `(No information available.)` se descartan en el momento de la construcción del corpus, lo que evita que fragmentos sin contenido consuman posiciones en el ranking de recuperación.
+
+Los parámetros principales del sistema se recogen en la Tabla 2:
+
+| Parámetro | Valor por defecto | Descripción |
+|---|---|---|
+| `similarity_fn` | `hybrid` | Función de recuperación activa |
+| `alpha` | 0,5 | Peso del coseno en modo híbrido |
+| `top_n` | 5 | Número de fragmentos recuperados |
+| Modelo de embedding | `bge-base-en-v1.5-gguf` | Embeddings de 768 dimensiones |
+| Modelo de lenguaje | `Llama-3.2-1B-Instruct-GGUF` | Generación de respuestas |
+
+*Tabla 2: Parámetros de configuración de RAGMED_rag.*
+
+El parámetro `alpha` y el número de resultados `top_n` pueden ajustarse desde la interfaz de línea de comandos mediante las opciones `--alpha` y `--top-n` respectivamente, lo que permite explorar el espacio de configuraciones sin modificar el código fuente.
 
 ---
 
@@ -154,3 +218,5 @@ El contraste de calidad entre artículos es notable. Una enfermedad bien documen
 [4] L. Richardson, "Beautiful Soup Documentation," Crummy.com. [Online]. Available: https://www.crummy.com/software/BeautifulSoup/bs4/doc/. [Accessed: May 2026].
 
 [5] Ollama, "Ollama — Get up and running with large language models." [Online]. Available: https://ollama.com/. [Accessed: May 2026].
+
+[6] D. Brown, "rank-bm25: A two-line search engine," GitHub. [Online]. Available: https://github.com/dorianbrown/rank_bm25. [Accessed: May 2026].

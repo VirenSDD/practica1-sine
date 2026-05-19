@@ -2,13 +2,14 @@
 RAGMED — main entry point.
 
 Phase 1: runs the crawler pipeline via CLI arguments.
-Phase 2 (TODO): adds the interactive RAG chatbot loop.
+Phase 2: interactive RAG chatbot loop powered by RAGMED_rag.
 """
 
 import argparse
 import os
 
 from ragmed_crawler import RAGMED_crawler
+from ragmed_rag import RAGMED_rag
 from ragmed_source import WikipediaDiseaseSource
 
 
@@ -53,6 +54,24 @@ def run_ragmed() -> None:
         action="store_true",
         help="Skip crawling and use an existing corpus file",
     )
+    parser.add_argument(
+        '--similarity-fn',
+        default='hybrid',
+        choices=['cosine', 'euclidean', 'jaccard', 'hybrid'],
+        help='Similarity function for retrieval',
+    )
+    parser.add_argument(
+        '--alpha',
+        type=float,
+        default=0.5,
+        help='Cosine weight in hybrid mode (0–1)',
+    )
+    parser.add_argument(
+        '--top-n',
+        type=int,
+        default=5,
+        help='Number of chunks to retrieve per query',
+    )
     args = parser.parse_args()
 
     if args.skip_crawler:
@@ -72,8 +91,16 @@ def run_ragmed() -> None:
             corpus_file=args.corpus_file,
         )
 
-    # Phase 2 — interactive chatbot loop will be added here once ragmed_rag.py is implemented
-    print(f"\nCorpus ready at '{args.corpus_file}'. RAG chatbot coming in Phase 2.")
+    print(f"\nCorpus ready at '{args.corpus_file}'. Starting RAG chatbot...")
+    rag = RAGMED_rag(args.corpus_file,
+                     similarity_fn=args.similarity_fn,
+                     alpha=args.alpha)
+    while True:
+        query = input("\nDescribe your symptoms (or 'stop' to quit): ")
+        if query.strip().lower() == 'stop':
+            print("Goodbye!")
+            break
+        rag.ask_question(query, max_results_ranking=args.top_n)
 
 
 if __name__ == "__main__":

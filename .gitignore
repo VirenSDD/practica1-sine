@@ -14,9 +14,9 @@ dist/
 uv.lock
 
 # Disease crawler output (large files, regenerated on run)
-Sistema/diseases/
-Sistema/diseases.txt
-Sistema/disease_list.txt
+diseases/
+diseases.txt
+disease_list.txt
 
 # Pokémon example output
 src/pokemons/
