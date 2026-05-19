@@ -89,6 +89,22 @@ Los ficheros `diseases/`, `disease_list.txt` y `diseases.txt` están en `.gitign
 
 ---
 
+## Ejecutar los tests
+
+El proyecto incluye una suite de tests unitarios que no requieren red ni Ollama. Se ejecutan desde la raíz del repositorio:
+
+```bash
+uv run pytest
+# Con salida detallada:
+uv run pytest -v
+```
+
+Los tests cubren:
+- `_helpers.py`: `safe_filename`, `parse_sections`, `find_section`
+- `ragmed_crawler.py`: pipeline completo con un `InMemoryDiseaseSource` (sin peticiones HTTP)
+
+---
+
 ## Referencia: código base
 
 El directorio `src/` contiene el sistema RAG de referencia sobre Pokémon (`SINE_Pract_2025_2026.py`), proporcionado por el equipo docente. No se debe modificar.

@@ -9,6 +9,7 @@ import argparse
 import os
 
 from ragmed_crawler import RAGMED_crawler
+from ragmed_source import WikipediaDiseaseSource
 
 
 def run_ragmed() -> None:
@@ -61,7 +62,10 @@ def run_ragmed() -> None:
                 "run without --skip-crawler to generate it first."
             )
     else:
-        RAGMED_crawler(max_diseases=args.max_diseases).build_corpus(
+        RAGMED_crawler(
+            source=WikipediaDiseaseSource(),
+            max_diseases=args.max_diseases,
+        ).build_corpus(
             letters=args.letters or None,
             shuffle=args.shuffle,
             list_file=args.list_file,
