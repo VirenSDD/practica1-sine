@@ -11,19 +11,6 @@ import os
 from ragmed_crawler import RAGMED_crawler
 
 
-def _run_crawler(args: argparse.Namespace) -> None:
-    crawler = RAGMED_crawler(max_diseases=args.max_diseases)
-    crawler.download_disease_list(
-        letters=args.letters or None,
-        output_file=args.list_file,
-        shuffle=args.shuffle,
-    )
-    crawler.download_disease_info()
-    for name in crawler.disease_list:
-        crawler.clean_disease_page(name)
-    crawler.generate_disease_summary(output_file=args.corpus_file)
-
-
 def run_ragmed() -> None:
     """Entry point for the RAGMED disease RAG system."""
     parser = argparse.ArgumentParser(
@@ -74,7 +61,12 @@ def run_ragmed() -> None:
                 "run without --skip-crawler to generate it first."
             )
     else:
-        _run_crawler(args)
+        RAGMED_crawler(max_diseases=args.max_diseases).build_corpus(
+            letters=args.letters or None,
+            shuffle=args.shuffle,
+            list_file=args.list_file,
+            corpus_file=args.corpus_file,
+        )
 
     # Phase 2 — interactive chatbot loop will be added here once ragmed_rag.py is implemented
     print(f"\nCorpus ready at '{args.corpus_file}'. RAG chatbot coming in Phase 2.")

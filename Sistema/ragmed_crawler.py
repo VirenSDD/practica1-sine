@@ -53,22 +53,45 @@ class RAGMED_crawler:
     # Public interface
     # ------------------------------------------------------------------
 
-    def download_disease_list(
+    def build_corpus(
+        self,
+        letters: list[str] | None = None,
+        shuffle: bool = False,
+        list_file: str = "disease_list.txt",
+        corpus_file: str = "diseases.txt",
+    ) -> None:
+        """
+        Run the full pipeline: fetch names → download extracts → clean → consolidate.
+
+        :param letters: Uppercase letters to scrape (default: A–Z).
+        :param shuffle: Randomise order before applying the ``max_diseases`` cap,
+            so repeated runs with a limit return a varied sample.
+        :param list_file: Output path for the disease name list.
+        :param corpus_file: Output path for the consolidated corpus.
+        """
+        self._download_disease_list(letters=letters, output_file=list_file, shuffle=shuffle)
+        self._download_disease_info()
+        for name in self.disease_list:
+            self._clean_disease_page(name)
+        self._generate_disease_summary(output_file=corpus_file)
+
+    # ------------------------------------------------------------------
+    # Private pipeline steps
+    # ------------------------------------------------------------------
+
+    def _download_disease_list(
         self,
         letters: list[str] | None = None,
         output_file: str = "disease_list.txt",
         shuffle: bool = False,
-    ) -> list[str]:
+    ) -> None:
         """
         Scrape the Wikipedia alphabetical disease-list pages and save names to a file.
 
         :param letters: Uppercase letters to scrape, e.g. ``["A", "B"]``.
             Defaults to all 26 letters of the alphabet.
         :param output_file: Path of the text file where disease names are saved.
-        :param shuffle: If ``True``, randomise the list before applying ``max_diseases``,
-            so repeated runs with a cap return a varied sample instead of always
-            starting from the beginning of letter A.
-        :return: List of discovered disease names.
+        :param shuffle: If ``True``, randomise the list before applying ``max_diseases``.
         """
         if letters is None:
             letters = [chr(ord("A") + i) for i in range(26)]
@@ -128,9 +151,8 @@ class RAGMED_crawler:
             fh.writelines(name + "\n" for name in self.disease_list)
 
         logger.info("Disease list saved to %s (%d diseases)", output_file, len(self.disease_list))
-        return self.disease_list
 
-    def download_disease_info(self) -> None:
+    def _download_disease_info(self) -> None:
         """
         Download the plain-text Wikipedia extract for each disease in ``self.disease_list``.
 
@@ -153,7 +175,7 @@ class RAGMED_crawler:
             logger.info("Saved raw extract to %s", output_path)
             time.sleep(_RATE_LIMIT)
 
-    def clean_disease_page(self, disease_name: str) -> None:
+    def _clean_disease_page(self, disease_name: str) -> None:
         """
         Parse a raw Wikipedia extract and write the structured clean version.
 
@@ -189,7 +211,7 @@ class RAGMED_crawler:
             fh.write("\n\n".join(parts) + "\n")
         logger.info("Cleaned page saved to %s", output_path)
 
-    def generate_disease_summary(self, output_file: str = "diseases.txt") -> None:
+    def _generate_disease_summary(self, output_file: str = "diseases.txt") -> None:
         """
         Combine all per-disease clean files into a single corpus file.
 
@@ -211,7 +233,7 @@ class RAGMED_crawler:
         logger.info("Disease summary written to %s", output_file)
 
     # ------------------------------------------------------------------
-    # Private helpers
+    # Private HTTP helper
     # ------------------------------------------------------------------
 
     def _fetch_wikipedia_extract(self, disease_name: str) -> str | None:
