@@ -6,6 +6,7 @@ implementation selected via the :class:`~similarity.base.SimilarityFn` enum.
 """
 
 import re
+from collections.abc import Iterator
 
 import ollama
 from rank_bm25 import BM25Okapi
@@ -237,6 +238,50 @@ class RAGMED_rag:
         return self._retriever.retrieve(
             query, self.chunks, self.embeddings, self.bm25, top_n
         )
+
+    def _swap_retriever(self, similarity_fn: str, alpha: float) -> None:
+        """Replace the retriever without rebuilding embeddings or BM25."""
+        new_fn = SimilarityFn(similarity_fn)
+        if new_fn == self.similarity_fn and alpha == getattr(self._retriever, "alpha", None):
+            return
+        self.similarity_fn = new_fn
+        fn_cls = _SIMILARITY_REGISTRY[new_fn]
+        kwargs = {"alpha": alpha} if new_fn is SimilarityFn.HYBRID else {}
+        self._retriever = fn_cls(**kwargs)
+
+    def ask_question_stream(
+        self, query: str, max_results_ranking: int = 5
+    ) -> Iterator[str]:
+        """
+        Yield partial LLM response tokens for *query*.
+
+        Retrieves relevant chunks then streams the language model response
+        token-by-token so callers (e.g. a Gradio chat interface) can display
+        incremental output without waiting for the full answer.
+
+        :param query: Free-text description of the patient's symptoms.
+        :param max_results_ranking: Number of top chunks to pass as context.
+        :return: Iterator of partial token strings.
+        """
+        retrieved_knowledge = self.retrieve_function(query, max_results_ranking)
+
+        instruction_prompt = (
+            "You are a helpful medical information assistant.\n"
+            "Use ONLY the following context passages to answer the question.\n"
+            "Do not invent information not present in the context.\n"
+            "Context:\n" + "\n".join(f" - {chunk}" for chunk, _ in retrieved_knowledge)
+        )
+
+        stream = ollama.chat(
+            model=self.LANGUAGE_MODEL,
+            messages=[
+                {"role": "system", "content": instruction_prompt},
+                {"role": "user", "content": query},
+            ],
+            stream=True,
+        )
+        for chunk in stream:
+            yield chunk["message"]["content"]
 
     def ask_question(self, query: str, max_results_ranking: int = 5) -> None:
         """

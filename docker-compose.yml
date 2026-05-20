@@ -1,0 +1,28 @@
+services:
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ragmed-web:
+    build: .
+    ports:
+      - "7860:7860"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - RAGMED_CORPUS=/data/diseases.txt
+    volumes:
+      - ./diseases.txt:/data/diseases.txt:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+volumes:
+  ollama_data:

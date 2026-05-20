@@ -39,6 +39,13 @@ Mark tasks `[x]` when done. Work **one task at a time**.
 - [ ] **T5.6** [Writer] Compile IEEE references in `Memoria/referencias.md`
 - [ ] **T5.7** [Writer] Final review and export to PDF (≤10 pages)
 
+## Phase 7 — Web UI (optional)
+- [x] **T7.1** [Executor] Add `gradio` to pyproject.toml, create `Sistema/ragmed_web.py`
+- [ ] **T7.2** [Executor] Test web UI locally with existing corpus
+- [x] **T7.3** [Executor] Write `Dockerfile` + `docker-compose.yml` for containerised local run
+- [x] **T7.4** [Researcher] Document cloud deployment options in `docs/research/deployment_options.md`
+- [x] **T7.5** [Writer] Add `DEPLOYMENT.md` with local + cloud run instructions
+
 ## Phase 6 — Packaging
 - [x] **T6.1** [Executor] Write `Sistema/README.md`
 - [ ] **T6.2** [Executor] Create final `.zip` with `Sistema/`, `Memoria/`, `Evaluación/`
