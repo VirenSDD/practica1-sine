@@ -50,7 +50,6 @@ class SimilarityFunction(ABC):
         query: str,
         chunks: list[str],
         embeddings: list[list[float]],
-        bm25,
         top_n: int,
     ) -> list[tuple[str, float]]:
         """Return the *top_n* most relevant ``(chunk, score)`` pairs.
@@ -58,7 +57,6 @@ class SimilarityFunction(ABC):
         :param query: Free-text symptom description from the user.
         :param chunks: Full corpus chunk strings (used for display and Jaccard).
         :param embeddings: Pre-computed embedding for each chunk (parallel to *chunks*).
-        :param bm25: BM25Okapi index built over the tokenised chunks, or ``None``.
         :param top_n: Maximum number of results to return.
         :return: List of ``(chunk, score)`` tuples sorted by score descending.
         """

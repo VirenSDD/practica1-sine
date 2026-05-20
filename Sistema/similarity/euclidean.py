@@ -16,7 +16,6 @@ class EuclideanSimilarity(SimilarityFunction):
         query: str,
         chunks: list[str],
         embeddings: list[list[float]],
-        bm25,
         top_n: int,
     ) -> list[tuple[str, float]]:
         """Rank chunks by inverse Euclidean distance to the embedded query."""

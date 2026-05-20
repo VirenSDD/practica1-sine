@@ -1,5 +1,7 @@
 """Hybrid BM25 + embedding cosine retrieval strategy."""
 
+from rank_bm25 import BM25Okapi
+
 from .base import SimilarityFunction, cosine_score
 
 
@@ -18,21 +20,26 @@ class HybridSimilarity(SimilarityFunction):
 
     def __init__(self, alpha: float = 0.5) -> None:
         self.alpha = alpha
+        self._bm25: BM25Okapi | None = None
+        self._indexed_chunks: list[str] | None = None
 
     def retrieve(
         self,
         query: str,
         chunks: list[str],
         embeddings: list[list[float]],
-        bm25,
         top_n: int,
     ) -> list[tuple[str, float]]:
         """Rank chunks by the weighted hybrid score."""
+        if self._bm25 is None or chunks is not self._indexed_chunks:
+            self._bm25 = BM25Okapi([c.lower().split() for c in chunks])
+            self._indexed_chunks = chunks
+
         qe = self._embed(query)
         cosine_scores = [cosine_score(qe, e) for e in embeddings]
 
         qt = query.lower().split()
-        bm25_raw = bm25.get_scores(qt)
+        bm25_raw = self._bm25.get_scores(qt)
         bm25_max = max(bm25_raw) if max(bm25_raw) > 0 else 1.0
         bm25_norm = [s / bm25_max for s in bm25_raw]
 

@@ -9,8 +9,6 @@ import re
 from collections.abc import Iterator
 
 import ollama
-from rank_bm25 import BM25Okapi
-
 from _helpers import NO_INFO, SectionHeader
 from similarity import (
     CosineSimilarity,
@@ -45,15 +43,19 @@ def _truncate(text: str, max_chars: int = _MAX_CHUNK_CHARS) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Factory: maps enum value → similarity class (with optional kwargs)
+# Factory: instantiate the requested similarity strategy
 # ---------------------------------------------------------------------------
 
-_SIMILARITY_REGISTRY: dict[SimilarityFn, type[SimilarityFunction]] = {
-    SimilarityFn.COSINE: CosineSimilarity,
-    SimilarityFn.EUCLIDEAN: EuclideanSimilarity,
-    SimilarityFn.JACCARD: JaccardSimilarity,
-    SimilarityFn.HYBRID: HybridSimilarity,
-}
+def _build_retriever(fn: SimilarityFn, alpha: float) -> SimilarityFunction:
+    if fn is SimilarityFn.COSINE:
+        return CosineSimilarity()
+    if fn is SimilarityFn.EUCLIDEAN:
+        return EuclideanSimilarity()
+    if fn is SimilarityFn.JACCARD:
+        return JaccardSimilarity()
+    if fn is SimilarityFn.HYBRID:
+        return HybridSimilarity(alpha=alpha)
+    raise ValueError(f"Unknown similarity function: {fn}")
 
 
 class RAGMED_rag:
@@ -80,14 +82,10 @@ class RAGMED_rag:
         :param alpha: Cosine weight in hybrid mode (``1 - alpha`` goes to BM25).
         """
         self.similarity_fn = SimilarityFn(similarity_fn)
-
-        fn_cls = _SIMILARITY_REGISTRY[self.similarity_fn]
-        kwargs = {"alpha": alpha} if self.similarity_fn is SimilarityFn.HYBRID else {}
-        self._retriever: SimilarityFunction = fn_cls(**kwargs)
+        self._retriever: SimilarityFunction = _build_retriever(self.similarity_fn, alpha)
 
         self.chunks: list[str] = []
         self.embeddings: list[list[float]] = []
-        self.bm25: BM25Okapi | None = None
         self.load_dataset(dataset_file)
 
     # ------------------------------------------------------------------
@@ -118,8 +116,6 @@ class RAGMED_rag:
             self.embeddings.append(embedding)
             print(f"Embedded chunk {i+1}/{len(self.chunks)}")
 
-        tokenised = [chunk.lower().split() for chunk in self.chunks]
-        self.bm25 = BM25Okapi(tokenised)
 
     # ------------------------------------------------------------------
     # Corpus parsing
@@ -235,9 +231,7 @@ class RAGMED_rag:
         :param top_n: Maximum number of results to return.
         :return: List of ``(chunk, score)`` tuples sorted by score descending.
         """
-        return self._retriever.retrieve(
-            query, self.chunks, self.embeddings, self.bm25, top_n
-        )
+        return self._retriever.retrieve(query, self.chunks, self.embeddings, top_n)
 
     def _swap_retriever(self, similarity_fn: str, alpha: float) -> None:
         """Replace the retriever without rebuilding embeddings or BM25."""
@@ -245,9 +239,7 @@ class RAGMED_rag:
         if new_fn == self.similarity_fn and alpha == getattr(self._retriever, "alpha", None):
             return
         self.similarity_fn = new_fn
-        fn_cls = _SIMILARITY_REGISTRY[new_fn]
-        kwargs = {"alpha": alpha} if new_fn is SimilarityFn.HYBRID else {}
-        self._retriever = fn_cls(**kwargs)
+        self._retriever = _build_retriever(new_fn, alpha)
 
     def ask_question_stream(
         self, query: str, max_results_ranking: int = 5
