@@ -335,7 +335,17 @@ La conclusión es que el valor óptimo de `max_context_chars` depende de la cali
 
 ## 6. Conclusiones
 
-> *[Sección pendiente de redacción]*
+Este trabajo ha presentado RAGMED, un sistema de recuperación aumentada por generación orientado al dominio médico que, dado un conjunto de síntomas descritos en lenguaje natural, devuelve un diagnóstico diferencial fundamentado en un corpus de artículos de Wikipedia sobre enfermedades.
+
+**Sobre el módulo de adquisición de datos.** El uso de la API REST de Wikipedia con el parámetro `explaintext` simplificó considerablemente el pipeline de extracción: el servidor devuelve el texto limpio con los encabezados de sección ya marcados, eliminando la necesidad de parsear HTML complejo. La estrategia de segmentación por sección —hasta cuatro fragmentos por enfermedad (Lead, Signs and symptoms, Causes, Treatment)— resultó más útil que una ventana de tokens fija, porque preserva la cohesión semántica de cada fragmento. El corpus final contiene 11 012 fragmentos procedentes de aproximadamente 5 390 enfermedades.
+
+**Sobre el módulo de recuperación.** La función de recuperación híbrida (BM25 + similitud coseno, α = 0,5) demostró ser superior a la recuperación puramente semántica para consultas en lenguaje natural. El componente BM25 refuerza la coincidencia de términos médicos exactos cuando el vocabulario del paciente coincide con el del corpus, mientras que el componente semántico captura la coherencia conceptual cuando la coincidencia léxica es parcial. Los resultados de evaluación confirman puntuaciones perfectas en las tres preguntas con mayor coincidencia terminológica (Q1, Q3, Q7).
+
+**Sobre la evaluación.** El sistema base (modelo 1B, contexto de 1 500 caracteres) obtuvo **17,5/30 puntos (58,3 %)** en las diez preguntas. Esta puntuación refleja el comportamiento bimodal esperado en sistemas RAG sobre corpus de dominio general: rendimiento óptimo cuando la recuperación es correcta, y fallos cuando los síntomas son genéricos o el vocabulario de la consulta difiere del corpus. Los fallos principales se concentran en enfermedades tropicales y crónicas (malaria, tuberculosis, hipotiroidismo) y se deben al módulo de recuperación, no al generativo.
+
+**Sobre los experimentos adicionales.** La sustitución del modelo de 1B por uno de 3B parámetros supuso la mejora más significativa: **+4,5 puntos (22/30, 73,3 %)**. El modelo más grande compensa parcialmente los fallos de recuperación gracias a su mayor conocimiento paramétrico, como se observó en Q6 (hipotiroidismo), donde identificó correctamente la enfermedad a pesar de que ningún fragmento recuperado pertenecía a ese artículo. Por el contrario, aumentar el contexto por fragmento de 1 500 a 3 000 caracteres empeoró el resultado global (15,5/30), confirmando que cuando el ranking contiene ruido, más contexto amplifica el señal erróneo.
+
+**Limitaciones y trabajo futuro.** Las principales limitaciones del sistema son: (1) la brecha léxica entre lenguaje coloquial y terminología clínica, que perjudica al componente BM25; (2) la saturación del espacio de embeddings en síntomas genéricos compartidos por muchas enfermedades; y (3) el comportamiento de autorestricción del modelo base ante preguntas de índole médica. Como mejoras futuras se propone implementar *query expansion* con sinónimos clínicos, aumentar `top_n` para reducir los fallos por síntomas compartidos, y evaluar modelos de mayor tamaño o instrucción específica para el dominio médico.
 
 ---
 
