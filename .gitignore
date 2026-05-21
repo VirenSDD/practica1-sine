@@ -23,6 +23,9 @@ src/pokemons/
 src/pokemons.txt
 src/pokemon_list.txt
 
+# Embedding cache (regenerated on first run, can be several hundred MB)
+*.cache.pkl
+
 # OS
 .DS_Store
 Thumbs.db

@@ -15,7 +15,7 @@ Para esta práctica, el dominio elegido es el de las enfermedades médicas. Esta
 
 El sistema implementado —denominado RAGMED— recibe como entrada una lista de síntomas introducida por el usuario y devuelve una lista de posibles enfermedades acompañada de una explicación generada por el LLM. Para ello se desarrollaron los siguientes componentes: (1) un crawler personalizado que descarga y estructura artículos de Wikipedia sobre enfermedades, (2) un módulo de recuperación de información mejorado respecto al código base (descrito en la sección 3), y (3) una evaluación cuantitativa de la calidad del sistema (sección 4).
 
-El resto del documento se organiza del siguiente modo. La sección 2 describe en detalle el módulo crawler: fuente de datos, estrategia de extracción, problemas encontrados y soluciones adoptadas. La sección 3 presenta el módulo de recuperación de información. La sección 4 recoge los resultados de la evaluación. La sección 5 concluye el trabajo.
+El resto del documento se organiza del siguiente modo. La sección 2 describe en detalle el módulo crawler: fuente de datos, estrategia de extracción, problemas encontrados y soluciones adoptadas. La sección 3 presenta el módulo de recuperación de información. La sección 4 recoge los resultados de la evaluación. La sección 5 presenta experimentos adicionales con distintos modelos y tamaños de contexto. La sección 6 concluye el trabajo.
 
 ---
 
@@ -197,11 +197,143 @@ El parámetro `alpha` y el número de resultados `top_n` pueden ajustarse desde 
 
 ## 4. Evaluación
 
-> *[Sección pendiente de redacción — T1.3]*
+### 4.1 Metodología de evaluación
+
+La evaluación del sistema RAGMED se realizó mediante un protocolo de evaluación manual compuesto por diez preguntas de ejemplo con respuesta de referencia (*ground truth*) definida a priori. Cada pregunta está formulada en inglés, en primera persona y desde la perspectiva de un paciente que describe sus síntomas, lo que reproduce el caso de uso previsto del sistema. El idioma inglés se eligió para maximizar la calidad de la recuperación, ya que el corpus está íntegramente en ese idioma.
+
+Para cada pregunta, se identificó manualmente la enfermedad esperada y se localizó el pasaje del corpus (`diseases.txt`) que avala la respuesta correcta. Este procedimiento garantiza que la respuesta de referencia procede exclusivamente del conocimiento contenido en el corpus, en coherencia con el principio de grounding del paradigma RAG.
+
+El sistema se evaluó con la configuración por defecto: función de recuperación híbrida (BM25 + coseno, α = 0,5) y cinco fragmentos recuperados por consulta. Cada respuesta generada se comparó con la respuesta de referencia y se puntuó con tres métricas independientes, siguiendo la rúbrica de la Tabla 3:
+
+| Métrica | 0 | 0,5 | 1 |
+|---------|---|-----|---|
+| **Precisión** | Respuesta incorrecta o irrelevante | Identificación parcialmente correcta | Identificación correcta con síntomas clave |
+| **Cobertura** | No cubre los síntomas de la consulta | Cubre parcialmente los síntomas relevantes | Cubre todos los síntomas clave del corpus |
+| **Veracidad** | Contiene afirmaciones falsas (alucinaciones) | Información dudosa o imprecisa | Sin información inventada |
+
+*Tabla 3: Rúbrica de puntuación para la evaluación manual.*
+
+La puntuación máxima posible es 30 puntos (10 preguntas × 3 métricas × 1 punto).
+
+### 4.2 Preguntas de evaluación
+
+Las diez preguntas cubren categorías diagnósticas diversas, garantizando que el sistema sea evaluado en distintos dominios médicos. La Tabla 4 resume las preguntas y la enfermedad esperada en cada caso. El documento completo con las preguntas, los pasajes de referencia y los criterios de corrección se encuentra en `Evaluación/preguntas_ground_truth.md`.
+
+| # | Consulta (resumen) | Enfermedad esperada | Categoría |
+|---|--------------------|---------------------|-----------|
+| Q1 | Mocos, dolor de garganta, estornudos, tos leve | Common cold | Viral/infecciosa |
+| Q2 | Fiebre súbita, dolores musculares, escalofríos, tos seca | Influenza | Viral/infecciosa |
+| Q3 | Sibilancias, disnea y opresión torácica nocturna | Asthma | Respiratoria crónica |
+| Q4 | Cefalea pulsátil unilateral, náuseas, fotofobia y fonofobia | Migraine | Neurológica |
+| Q5 | Dolor súbito, inflamación y enrojecimiento en el dedo gordo del pie | Gout | Metabólica/reumática |
+| Q6 | Fatiga extrema, aumento de peso, intolerancia al frío, estreñimiento | Hypothyroidism | Endocrina |
+| Q7 | Fiebre, dolor torácico pleurítico, tos productiva, disnea | Pneumonia | Respiratoria/infecciosa |
+| Q8 | Articulaciones inflamadas, rigidez matutina >1 h, afectación simétrica | Rheumatoid arthritis | Autoinmune |
+| Q9 | Fiebre cíclica, escalofríos, cefalea y náuseas tras viaje a África | Malaria | Parasitaria/tropical |
+| Q10 | Tos crónica con sangre, sudores nocturnos, pérdida de peso | Tuberculosis | Bacteriana/crónica |
+
+*Tabla 4: Preguntas de evaluación y enfermedades esperadas.*
+
+### 4.3 Resultados
+
+Los resultados obtenidos tras ejecutar el script de evaluación (`Sistema/ragmed_eval.py`) con la configuración por defecto se recogen en la Tabla 5. Las respuestas completas del sistema se encuentran en `Evaluación/respuestas_sistema.md`; las puntuaciones detalladas y observaciones por pregunta, en `Evaluación/evaluacion.md`.
+
+| # | Enfermedad | Precisión | Cobertura | Veracidad | Total |
+|---|------------|:---------:|:---------:|:---------:|:-----:|
+| Q1 | Common cold | 1 | 1 | 1 | **3/3** |
+| Q2 | Influenza | 0,5 | 0,5 | 0,5 | **1,5/3** |
+| Q3 | Asthma | 1 | 1 | 1 | **3/3** |
+| Q4 | Migraine | 1 | 0,5 | 0,5 | **2/3** |
+| Q5 | Gout | 1 | 0,5 | 0,5 | **2/3** |
+| Q6 | Hypothyroidism | 0,5 | 0 | 0,5 | **1/3** |
+| Q7 | Pneumonia | 1 | 1 | 1 | **3/3** |
+| Q8 | Rheumatoid arthritis | 0,5 | 0,5 | 1 | **2/3** |
+| Q9 | Malaria | 0 | 0 | 0 | **0/3** |
+| Q10 | Tuberculosis | 0 | 0 | 0,5 | **0,5/3** |
+| **Total** | | **6,5/10** | **5/10** | **6/10** | **17,5/30** |
+| **%** | | 65 % | 50 % | 60 % | **58,3 %** |
+
+*Tabla 5: Resultados de la evaluación manual.*
+
+### 4.4 Análisis
+
+La evaluación arrojó una puntuación global de **17,5/30 (58,3 %)**, con una distribución claramente bimodal: tres preguntas obtuvieron la máxima puntuación (Q1, Q3, Q7) y tres obtuvieron puntuación casi nula (Q6, Q9, Q10).
+
+**Fortalezas del sistema.** El sistema funciona de forma óptima cuando los síntomas de la consulta usan vocabulario coincidente con el del corpus. En los casos de *common cold* (Q1), *asthma* (Q3) y *pneumonia* (Q7), el fragmento de "Signs and symptoms" correspondiente alcanzó la primera posición del ranking con puntuaciones superiores a 0,85. En estos casos, la función híbrida supera claramente a la recuperación puramente semántica, porque el componente BM25 refuerza la coincidencia de términos exactos (por ejemplo, "wheezing", "shortness of breath", "chest tightness" en asma), mientras que el componente coseno captura la coherencia semántica general.
+
+**Fallos de recuperación.** Se identificaron dos patrones de fallo:
+
+1. *Brecha léxica.* En la pregunta Q6 (hypothyroidism), la consulta emplea lenguaje coloquial ("feeling cold all the time") que no coincide con la terminología clínica del corpus ("poor ability to tolerate cold"). Esta discrepancia impidió que ninguno de los cinco fragmentos recuperados perteneciera al artículo de hypothyroidism. El componente semántico del embedding debería mitigar este tipo de brecha, pero la magnitud del corpus (~11 000 fragmentos) y la presencia de muchas enfermedades con síntomas genéricos de fatiga o malestar general parece saturar el espacio semántico.
+
+2. *Síntomas compartidos.* En Q9 (malaria) y Q10 (tuberculosis), los síntomas descritos —fiebre cíclica, escalofríos y tos con hemoptisis, sudores nocturnos y pérdida de peso— son hallazgos presentes en numerosas enfermedades. Sin el nombre de la enfermedad en la consulta, el ranking no favorece a los artículos específicos de malaria y tuberculosis frente a enfermedades con perfiles sintomáticos solapados.
+
+**Comportamiento de seguridad del modelo.** En Q9, el modelo de lenguaje rechazó responder con el mensaje "I can't provide information about diseases", a pesar del system prompt configurado como asistente de información médica. Este comportamiento de autorestricción del modelo base reduce la utilidad del sistema para enfermedades tropicales y merece atención en una mejora futura.
+
+**Alucinación puntual.** En Q5 (gout), el modelo cometió el error factual "allopurinol (Zyrtec)", confundiendo el nombre comercial de la cetirizina (antihistamínico) con el del alopurinol. Este tipo de error muestra que el modelo de 1B parámetros mezcla en ocasiones conocimiento de preentrenamiento con el contexto recuperado en detalles específicos (nombres comerciales de fármacos).
+
+**Caso especial: Diabetes mellitus.** Aunque el corpus carece de un artículo dedicado a *Diabetes mellitus* como entrada principal, el sistema respondió adecuadamente a consultas con síntomas de diabetes tipo 2 durante las pruebas informales previas a la evaluación. Los fragmentos recuperados procedían de otras enfermedades que mencionan la diabetes como comorbilidad, y el modelo sintetizó una respuesta coherente. Este resultado ilustra la capacidad del paradigma RAG de integrar información distribuida en el corpus.
+
+**Recomendaciones de mejora.** Aumentar `top_n` de 5 a 10 fragmentos recuperados podría reducir los fallos en enfermedades con síntomas genéricos. La aplicación de query expansion —añadiendo sinónimos clínicos a las consultas en lenguaje coloquial— también mejoraría el componente BM25 de la recuperación. A nivel del módulo de generación, un modelo más grande (≥3B parámetros) aumentaría la fidelidad al contexto y reduciría las alucinaciones puntuales.
 
 ---
 
-## 5. Conclusiones
+## 5. Experimentos adicionales
+
+Para obtener el punto opcional de la práctica se realizaron dos experimentos complementarios: (T4.1) comparación del modelo generativo base con un modelo de mayor tamaño, y (T4.2) comparación de tres tamaños de contexto por fragmento recuperado. En ambos casos la configuración de recuperación fue idéntica (hybrid, α = 0,5, top-N = 5) y se reutilizaron los embeddings cacheados, de forma que los experimentos sólo difirieron en el componente evaluado.
+
+### 5.1 Comparación de modelos generativos (T4.1)
+
+Se comparó el modelo base `Llama-3.2-1B-Instruct-GGUF` (1,24 B parámetros, 807 MB en disco) con `llama3.2:3b` (3 B parámetros, 2,0 GB en disco). Las 10 preguntas de evaluación se lanzaron con configuración idéntica sobre ambos modelos. Los resultados se muestran en la Tabla 3.
+
+**Tabla 3.** Puntuaciones por pregunta: modelo 1B vs modelo 3B.
+
+| # | Enfermedad | 1B Total | 3B Total |
+|---|------------|:--------:|:--------:|
+| Q1 | Common cold | 3/3 | 3/3 |
+| Q2 | Influenza | 1,5/3 | 1,5/3 |
+| Q3 | Asthma | 3/3 | 3/3 |
+| Q4 | Migraine | 2/3 | 2,5/3 |
+| Q5 | Gout | 2/3 | 3/3 |
+| Q6 | Hypothyroidism | 1/3 | 2,5/3 |
+| Q7 | Pneumonia | 3/3 | 3/3 |
+| Q8 | Rheumatoid arthritis | 2/3 | 2,5/3 |
+| Q9 | Malaria | 0/3 | 0,5/3 |
+| Q10 | Tuberculosis | 0,5/3 | 0,5/3 |
+| **Total** | | **17,5/30** | **22/30** |
+
+El modelo 3B mejora **+4,5 puntos** respecto al 1B (73,3% vs 58,3%). Las ganancias se concentran en preguntas donde la recuperación es correcta pero el modelo generativo necesita conocimiento médico para sintetizar la respuesta:
+
+- **Q6 Hypothyroidism (+1,5):** El sistema de recuperación falla en ambos casos (los fragmentos recuperados no contienen el artículo de hipotiroidismo). Sin embargo, el modelo 3B identifica correctamente la enfermedad apoyándose en conocimiento paramétrico propio, mientras que el 1B no consigue nominarla. Este resultado confirma que modelos más grandes compensan mejor los fallos de recuperación.
+- **Q5 Gout (+1):** El modelo 1B alucinó el nombre "allopurinol (Zyrtec)" confundiendo dos fármacos distintos. El modelo 3B no comete este error.
+- **Q4 Migraine (+0,5) y Q8 RA (+0,5):** El 3B muestra mayor coherencia al integrar fragmentos de distintas enfermedades en el contexto.
+
+Los fallos en Q9 (Malaria) y Q10 (Tuberculosis) persisten en ambos modelos porque la causa es un fallo de recuperación: el artículo de la enfermedad esperada no aparece entre los top-5 fragmentos. Este problema requiere mejorar el indexado, no el modelo generativo.
+
+### 5.2 Comparación de tamaños de contexto por fragmento (T4.2)
+
+El parámetro `max_context_chars` controla cuántos caracteres de cada fragmento recuperado se incluyen en el prompt del LLM. Se compararon tres valores: 500 (~75 palabras), 1 500 (baseline, ~230 palabras) y 3 000 (~460 palabras). El ranking de recuperación es idéntico en los tres casos.
+
+**Tabla 4.** Puntuaciones totales por configuración de contexto.
+
+| max-context-chars | P | C | V | Total |
+|:-----------------:|:-:|:-:|:-:|:-----:|
+| 500 | 5,5 | 5,5 | 6,5 | **17,5/30** |
+| 1 500 (baseline) | 6,5 | 5,0 | 6,0 | **17,5/30** |
+| 3 000 | 6,0 | 4,0 | 5,5 | **15,5/30** |
+
+Los resultados revelan una tendencia contraintuitiva: **más contexto no implica mejores respuestas**. Los tres valores producen totales similares (17,5 / 17,5 / 15,5), y el más alto resulta ser el peor.
+
+El análisis por pregunta explica este fenómeno. Cuando el ranking de recuperación es bueno, los fragmentos correctos aparecen en las primeras posiciones y ampliar el contexto añade información redundante que el modelo trata de integrar generando respuestas más largas y con más alternativas innecesarias (Q1, Q3, Q5 con 3 000 chars).
+
+Cuando el ranking es mediocre, la situación empeora: los fragmentos erróneos en las posiciones altas reciben 3 000 chars de descripción detallada que el modelo prioriza sobre el fragmento correcto en posición baja. En Q8 (Rheumatoid arthritis), los dos primeros fragmentos son de JIA (Juvenile Idiopathic Arthritis); con 3 000 chars el modelo genera una descripción exhaustiva de JIA eclipsando completamente el fragmento de RA en la posición 5. En Q6 (Hypothyroidism), el fragmento de Hyperkalemia en posición 2 con 3 000 chars lleva al modelo a diagnosticar "Hypokalemia" de forma errónea.
+
+El resultado paradójico de Q4 (Migraine) —donde 500 chars supera al baseline— ilustra el efecto contrario: los tres fragmentos de Arnold–Chiari malformation en posiciones 2–4 son perjudiciales cuando el modelo los lee enteros (1 500 chars), pero con 500 chars sólo muestra el encabezado del artículo, que el modelo ignora correctamente.
+
+La conclusión es que el valor óptimo de `max_context_chars` depende de la calidad del ranking de recuperación: con un ranking perfecto conviene maximizar el contexto, pero con los fallos actuales (fragmentos irrelevantes entre los top-5), el valor baseline de 1 500 chars ofrece el mejor equilibrio.
+
+---
+
+## 6. Conclusiones
 
 > *[Sección pendiente de redacción]*
 

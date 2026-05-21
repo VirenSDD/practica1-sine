@@ -5,8 +5,11 @@ Retrieval is delegated to a :class:`~similarity.base.SimilarityFunction`
 implementation selected via the :class:`~similarity.base.SimilarityFn` enum.
 """
 
+import hashlib
+import pickle
 import re
 from collections.abc import Iterator
+from pathlib import Path
 
 import ollama
 from _helpers import NO_INFO, SectionHeader
@@ -46,6 +49,15 @@ def _truncate(text: str, max_chars: int = _MAX_CHUNK_CHARS) -> str:
 # Factory: instantiate the requested similarity strategy
 # ---------------------------------------------------------------------------
 
+def _corpus_hash(path: str) -> str:
+    with open(path, "rb") as f:
+        return hashlib.md5(f.read()).hexdigest()
+
+
+def _cache_path(dataset_file: str) -> Path:
+    return Path(dataset_file).parent / (Path(dataset_file).name + ".cache.pkl")
+
+
 def _build_retriever(fn: SimilarityFn, alpha: float) -> SimilarityFunction:
     if fn is SimilarityFn.COSINE:
         return CosineSimilarity()
@@ -70,7 +82,12 @@ class RAGMED_rag:
     LANGUAGE_MODEL = "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF"
 
     def __init__(
-        self, dataset_file: str, similarity_fn: str = "hybrid", alpha: float = 0.5
+        self,
+        dataset_file: str,
+        similarity_fn: str = "hybrid",
+        alpha: float = 0.5,
+        language_model: str = "",
+        max_context_chars: int = 0,
     ) -> None:
         """
         Initialise the RAG system and load the corpus.
@@ -80,9 +97,14 @@ class RAGMED_rag:
             ``'euclidean'``, ``'jaccard'``, ``'hybrid'``.
             Invalid values raise :class:`ValueError` via the enum.
         :param alpha: Cosine weight in hybrid mode (``1 - alpha`` goes to BM25).
+        :param language_model: Override the generation model (empty = default).
+        :param max_context_chars: If >0, truncate each retrieved chunk to this
+            many characters before including it in the LLM prompt.
         """
         self.similarity_fn = SimilarityFn(similarity_fn)
         self._retriever: SimilarityFunction = _build_retriever(self.similarity_fn, alpha)
+        self._language_model = language_model or self.LANGUAGE_MODEL
+        self._max_context_chars = max_context_chars
 
         self.chunks: list[str] = []
         self.embeddings: list[list[float]] = []
@@ -108,6 +130,20 @@ class RAGMED_rag:
         self.chunks = self._parse_chunks(raw)
         print(f"Loaded {len(self.chunks)} chunks from {dataset_file}")
 
+        cache = _cache_path(dataset_file)
+        corpus_hash = _corpus_hash(dataset_file)
+
+        if cache.exists():
+            with open(cache, "rb") as f:
+                cached = pickle.load(f)
+            if (
+                cached.get("hash") == corpus_hash
+                and cached.get("chunk_count") == len(self.chunks)
+            ):
+                self.embeddings = cached["embeddings"]
+                print(f"Loaded {len(self.embeddings)} embeddings from cache ({cache})")
+                return
+
         for i, chunk in enumerate(self.chunks):
             embedding = ollama.embed(
                 model=self.EMBEDDING_MODEL,
@@ -115,6 +151,13 @@ class RAGMED_rag:
             )["embeddings"][0]
             self.embeddings.append(embedding)
             print(f"Embedded chunk {i+1}/{len(self.chunks)}")
+
+        with open(cache, "wb") as f:
+            pickle.dump(
+                {"hash": corpus_hash, "chunk_count": len(self.chunks), "embeddings": self.embeddings},
+                f,
+            )
+        print(f"Saved embedding cache → {cache}")
 
 
     # ------------------------------------------------------------------
@@ -257,15 +300,18 @@ class RAGMED_rag:
         """
         retrieved_knowledge = self.retrieve_function(query, max_results_ranking)
 
+        def _ctx(text: str) -> str:
+            return _truncate(text, self._max_context_chars) if self._max_context_chars > 0 else text
+
         instruction_prompt = (
             "You are a helpful medical information assistant.\n"
             "Use ONLY the following context passages to answer the question.\n"
             "Do not invent information not present in the context.\n"
-            "Context:\n" + "\n".join(f" - {chunk}" for chunk, _ in retrieved_knowledge)
+            "Context:\n" + "\n".join(f" - {_ctx(chunk)}" for chunk, _ in retrieved_knowledge)
         )
 
         stream = ollama.chat(
-            model=self.LANGUAGE_MODEL,
+            model=self._language_model,
             messages=[
                 {"role": "system", "content": instruction_prompt},
                 {"role": "user", "content": query},
@@ -288,15 +334,18 @@ class RAGMED_rag:
         for chunk, score in retrieved_knowledge:
             print(f" - (score: {score:.4f}) {chunk}")
 
+        def _ctx(text: str) -> str:
+            return _truncate(text, self._max_context_chars) if self._max_context_chars > 0 else text
+
         instruction_prompt = (
             "You are a helpful medical information assistant.\n"
             "Use ONLY the following context passages to answer the question.\n"
             "Do not invent information not present in the context.\n"
-            "Context:\n" + "\n".join(f" - {chunk}" for chunk, _ in retrieved_knowledge)
+            "Context:\n" + "\n".join(f" - {_ctx(chunk)}" for chunk, _ in retrieved_knowledge)
         )
 
         stream = ollama.chat(
-            model=self.LANGUAGE_MODEL,
+            model=self._language_model,
             messages=[
                 {"role": "system", "content": instruction_prompt},
                 {"role": "user", "content": query},

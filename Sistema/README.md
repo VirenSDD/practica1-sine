@@ -72,6 +72,29 @@ En Phase 1, el programa ejecuta el crawler y termina. En Phase 2 añadirá el bu
 
 ---
 
+## Interfaz web
+
+El sistema incluye una interfaz web basada en Gradio. Para lanzarla localmente:
+
+```bash
+# 1. Asegúrate de tener el corpus generado (o usa --skip-crawler si ya existe diseases.txt)
+uv run python Sistema/ragmed_main.py --skip-crawler
+
+# 2. Arranca el servidor web
+uv run python Sistema/ragmed_web.py
+```
+
+Abre el navegador en **http://localhost:7860**.
+
+La primera vez que se lanza, el sistema embebe todos los fragmentos del corpus (puede tardar varios minutos). Las ejecuciones siguientes cargan los embeddings desde caché (`diseases.txt.cache.pkl`) y arrancan en segundos.
+
+La interfaz incluye:
+- **Chat** — escribe tus síntomas y recibe un diagnóstico diferencial generado por el LLM.
+- **🔍 Retrieved context** — acordeón oculto; expándelo para ver exactamente qué fragmentos del corpus se usaron para generar la respuesta, con sus puntuaciones de similitud.
+- **⚙️ Configuration** — ajusta la función de recuperación (`hybrid`, `cosine`, `euclidean`, `jaccard`), el peso α del componente coseno y el número de fragmentos recuperados (top-N).
+
+---
+
 ## Estructura de ficheros
 
 ```

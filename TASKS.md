@@ -22,20 +22,20 @@ Mark tasks `[x]` when done. Work **one task at a time**.
 - [x] **T2.3** [Executor] Create `src/ragmed_main.py` and test with 3 symptom queries
 
 ## Phase 3 — Evaluation
-- [ ] **T3.1** [Researcher + PO] Design 10 evaluation questions with ground-truth answers. Save to `Evaluación/preguntas_ground_truth.md`.
-- [ ] **T3.2** [Executor] Run 10 questions through the system, capture outputs
-- [ ] **T3.3** [PO] Score answers (precisión, cobertura, veracidad). Save results to `Evaluación/evaluacion.md`.
+- [x] **T3.1** [Researcher + PO] Design 10 evaluation questions with ground-truth answers. Save to `Evaluación/preguntas_ground_truth.md`.
+- [x] **T3.2** [Executor] Run 10 questions through the system, capture outputs
+- [x] **T3.3** [PO] Score answers (precisión, cobertura, veracidad). Save results to `Evaluación/evaluacion.md`.
 
 ## Phase 4 — Optional (+1 point)
-- [ ] **T4.1** [Executor] Test a second Ollama LLM, compare results on the 10 questions
-- [ ] **T4.2** [Executor] Test 2 different chunk sizes, compare retrieval quality
+- [x] **T4.1** [Executor] Test a second Ollama LLM, compare results on the 10 questions (`llama3.2:3b` → 22/30 vs 1B baseline 17,5/30)
+- [x] **T4.2** [Executor] Test 2 different chunk sizes, compare retrieval quality (500: 17,5/30; 1500: 17,5/30; 3000: 15,5/30)
 
 ## Phase 5 — Report (Memoria)
 - [x] **T5.1** [Writer] Draft Section 1: Introducción
 - [x] **T5.2** [Writer] Draft Section 2: Módulo Crawler
 - [x] **T5.3** [Writer] Draft Section 3: Sistema de Recuperación de Información
-- [ ] **T5.4** [Writer] Draft Section 4: Evaluación
-- [ ] **T5.5** [Writer] Draft Section 5 (optional): Experimentos adicionales
+- [x] **T5.4** [Writer] Draft Section 4: Evaluación *(template + structure written; scores to fill after T3.3)*
+- [x] **T5.5** [Writer] Draft Section 5: Experimentos adicionales (T4.1 + T4.2 results written in memoria.md §5)
 - [ ] **T5.6** [Writer] Compile IEEE references in `Memoria/referencias.md`
 - [ ] **T5.7** [Writer] Final review and export to PDF (≤10 pages)
 
