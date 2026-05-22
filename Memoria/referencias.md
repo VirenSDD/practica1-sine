@@ -14,3 +14,5 @@ Copiar al final de `memoria.md` al completar todas las secciones.
 [4] L. Richardson, "Beautiful Soup Documentation," Crummy.com. [Online]. Available: https://www.crummy.com/software/BeautifulSoup/bs4/doc/. [Accessed: May 2026].
 
 [5] Ollama, "Ollama — Get up and running with large language models." [Online]. Available: https://ollama.com/. [Accessed: May 2026].
+
+[6] D. Brown, "rank-bm25: A two-line search engine," GitHub. [Online]. Available: https://github.com/dorianbrown/rank_bm25. [Accessed: May 2026].

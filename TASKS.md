@@ -36,8 +36,8 @@ Mark tasks `[x]` when done. Work **one task at a time**.
 - [x] **T5.3** [Writer] Draft Section 3: Sistema de Recuperación de Información
 - [x] **T5.4** [Writer] Draft Section 4: Evaluación *(template + structure written; scores to fill after T3.3)*
 - [x] **T5.5** [Writer] Draft Section 5: Experimentos adicionales (T4.1 + T4.2 results written in memoria.md §5)
-- [ ] **T5.6** [Writer] Compile IEEE references in `Memoria/referencias.md`
-- [ ] **T5.7** [Writer] Final review and export to PDF (≤10 pages)
+- [x] **T5.6** [Writer] Compile IEEE references in `Memoria/referencias.md`
+- [x] **T5.7** [Writer] Final review and export to PDF (≤10 pages)
 
 ## Phase 7 — Web UI (optional)
 - [x] **T7.1** [Executor] Add `gradio` to pyproject.toml, create `Sistema/ragmed_web.py`
@@ -48,7 +48,7 @@ Mark tasks `[x]` when done. Work **one task at a time**.
 
 ## Phase 6 — Packaging
 - [x] **T6.1** [Executor] Write `Sistema/README.md`
-- [ ] **T6.2** [Executor] Create final `.zip` with `Sistema/`, `Memoria/`, `Evaluación/`
+- [x] **T6.2** [Executor] Create final `.zip` with `Sistema/`, `Memoria/`, `Evaluación/`
 
 ---
 

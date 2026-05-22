@@ -7,15 +7,11 @@
 
 ## 1. Introducción
 
-Los sistemas de recuperación aumentada por generación (RAG, del inglés *Retrieval-Augmented Generation*) representan un paradigma de arquitectura que combina tres componentes fundamentales: un módulo de recopilación y almacenamiento de datos (crawler e indexador), un módulo de recuperación de información relevante, y un módulo de generación de texto mediante un modelo de lenguaje de gran escala (LLM) [1]. A diferencia de los sistemas basados únicamente en LLMs, los sistemas RAG anclan las respuestas generadas en un corpus documental específico, reduciendo las alucinaciones y permitiendo actualizar el conocimiento del sistema sin necesidad de reentrenar el modelo.
+Los sistemas de recuperación aumentada por generación (RAG) combinan tres componentes: un crawler que construye el corpus, un módulo de recuperación de información (IR) que localiza los fragmentos relevantes, y un LLM que genera la respuesta [1]. A diferencia de los LLMs puros, los sistemas RAG anclan las respuestas en el corpus, reduciendo alucinaciones sin necesidad de reentrenar el modelo.
 
-Como punto de partida, la práctica proporcionó un sistema RAG de referencia implementado sobre información de Pokémon, extraída de WikiDex mediante scraping HTML con BeautifulSoup [4]. Este sistema base ilustra el flujo completo del pipeline RAG: el crawler descarga páginas web y construye un corpus de texto plano; el módulo de recuperación localiza los fragmentos más relevantes para una consulta dada; y el LLM —servido localmente a través de Ollama [5]— genera una respuesta coherente a partir de esos fragmentos.
+Como punto de partida se proporcionó un sistema de referencia sobre información de Pokémon extraída de WikiDex [4,5]. Esta práctica extiende ese sistema al dominio médico: RAGMED recibe una lista de síntomas y sugiere posibles enfermedades apoyándose en un corpus de artículos de Wikipedia. El dominio médico es idóneo porque los artículos presentan estructura consistente (síntomas, causas, tratamiento), Wikipedia ofrece cobertura amplia y de libre acceso, y la aplicación tiene utilidad práctica como herramienta de orientación médica general.
 
-Para esta práctica, el dominio elegido es el de las enfermedades médicas. Esta elección se justifica por tres razones. En primer lugar, las enfermedades presentan una estructura semántica clara y consistente: cada artículo incluye habitualmente una descripción general, síntomas, causas y tratamiento, lo que facilita tanto la extracción estructurada de información como su aprovechamiento en la fase de recuperación. En segundo lugar, Wikipedia dispone de miles de artículos médicos bien documentados y actualizados, que constituyen un corpus de alta calidad y de acceso libre. En tercer lugar, la aplicación tiene utilidad práctica real: un sistema capaz de sugerir posibles enfermedades a partir de una lista de síntomas puede ser de ayuda en contextos de triaje o de orientación médica general, siempre como complemento y nunca como sustituto del criterio clínico.
-
-El sistema implementado —denominado RAGMED— recibe como entrada una lista de síntomas introducida por el usuario y devuelve una lista de posibles enfermedades acompañada de una explicación generada por el LLM. Para ello se desarrollaron los siguientes componentes: (1) un crawler personalizado que descarga y estructura artículos de Wikipedia sobre enfermedades, (2) un módulo de recuperación de información mejorado respecto al código base (descrito en la sección 3), y (3) una evaluación cuantitativa de la calidad del sistema (sección 4).
-
-El resto del documento se organiza del siguiente modo. La sección 2 describe en detalle el módulo crawler: fuente de datos, estrategia de extracción, problemas encontrados y soluciones adoptadas. La sección 3 presenta el módulo de recuperación de información. La sección 4 recoge los resultados de la evaluación. La sección 5 presenta experimentos adicionales con distintos modelos y tamaños de contexto. La sección 6 concluye el trabajo.
+Se desarrollaron tres componentes: (1) un crawler que descarga y estructura artículos de Wikipedia sobre enfermedades, (2) un módulo IR mejorado con recuperación híbrida BM25 + coseno, y (3) una evaluación manual con 10 preguntas. Las secciones 2–5 detallan cada componente; la sección 6 presenta las conclusiones.
 
 ---
 
@@ -27,7 +23,7 @@ Un crawler web es un programa automatizado que recorre páginas de internet sigu
 
 Para RAGMED se implementó la clase `RAGMED_crawler` en el fichero `Sistema/ragmed_crawler.py`. El crawler cubre dos etapas: la descarga de la lista de enfermedades y la descarga del contenido individual de cada artículo.
 
-<!-- TODO: add figure here — diagrama de flujo del crawler con las dos etapas -->
+En la **primera etapa**, el crawler recorre las páginas de índice de Wikipedia (letras A–Z) y extrae los nombres de enfermedades enlazadas, guardándolos en `disease_list.txt`. En la **segunda etapa**, para cada nombre de la lista, consulta la MediaWiki API para obtener el extracto de texto del artículo, lo segmenta en cuatro secciones y escribe el bloque resultante en `diseases.txt`.
 
 ### 2.2 Fuente de datos: Wikipedia mediante la API REST
 
@@ -99,7 +95,27 @@ Treatment
 
 Cuando una sección no está disponible en el artículo de Wikipedia, se escribe el literal `(No information available.)` para que el bloque mantenga siempre la misma estructura y sea fácilmente parseable por el módulo de recuperación. Además de este fichero consolidado, el crawler genera ficheros intermedios por enfermedad (`diseases/{nombre}.txt` para el extracto bruto y `diseases/{nombre}_clean.txt` para el extracto estructurado), lo que facilita la depuración y la reanudación de ejecuciones interrumpidas.
 
-<!-- TODO: add figure here — ejemplo de bloque de diseases.txt para una enfermedad bien documentada (p. ej. Abdominal aortic aneurysm) -->
+El siguiente fragmento ilustra el formato resultante para una enfermedad bien documentada:
+
+```
+Abdominal aortic aneurysm
+=========================
+Lead: Abdominal aortic aneurysm (AAA) is a localized enlargement of the
+abdominal aorta such that the diameter is greater than 3 cm [...]
+
+Signs and symptoms
+==================
+The vast majority of aneurysms are asymptomatic. However, as the aorta
+expands, the aneurysm may become painful [...]
+
+Causes
+======
+Tobacco smoking: More than 90% of people who develop an AAA have smoked [...]
+
+Treatment
+=========
+Treatment options are conservative management, surveillance, and repair [...]
+```
 
 #### 2.3.3 Problemas encontrados y soluciones
 
@@ -117,11 +133,7 @@ Toda la actividad del crawler se registra mediante el módulo estándar `logging
 
 Se ejecutó el crawler sobre el índice alfabético completo de Wikipedia (letras A–Z). El proceso identificó **5.390 nombres de enfermedades** en las páginas de índice y descargó con éxito el artículo de **4.312 de ellas**, generando un corpus consolidado de 146.806 líneas en `diseases.txt`. Las 1.078 entradas restantes corresponden principalmente a artículos vacíos, redirecciones a páginas de desambiguación o síndromes muy raros con escasa documentación en Wikipedia, donde la API devuelve un extracto nulo o la página está marcada como `missing`.
 
-El contraste de calidad entre artículos es notable. Una enfermedad bien documentada como Aarskog syndrome dispone de párrafo inicial detallado, sección de síntomas extensa con subsecciones, y sección de tratamiento; el bloque resultante en `diseases.txt` es rico y directamente útil para la recuperación. En cambio, un síndrome raro como Aagenaes syndrome solo tiene información en el párrafo inicial y en la sección de tratamiento, quedando los campos de síntomas y causas marcados como `(No information available.)`. Esta heterogeneidad es inherente a la fuente de datos y deberá tenerse en cuenta en la evaluación del sistema completo.
-
-### 2.4 Referencias de sección
-
-<!-- Referencias globales al final del documento -->
+La calidad varía notablemente: enfermedades bien documentadas disponen de las cuatro secciones completas, mientras que síndromes raros solo tienen párrafo inicial y quedan con los campos de síntomas y causas marcados como `(No information available.)`.
 
 ---
 
@@ -131,19 +143,11 @@ El módulo de recuperación de información es el componente central de todo sis
 
 ### 3.1 Sistema base: similitud coseno sobre embeddings densos
 
-La clase de referencia `SINE_rag`, proporcionada en `src/SINE_Pract_2025_2026.py`, implementa el esquema clásico de recuperación densa mediante embeddings: cada línea del corpus se convierte en un vector de alta dimensión usando el modelo `bge-base-en-v1.5-gguf` servido a través de Ollama, y la relevancia de cada fragmento respecto a una consulta se mide como la similitud coseno entre el vector de la consulta y el vector del fragmento [1, §7.1.2, pp. 237–242]. Dado que el modelo devuelve vectores L2-normalizados de 768 dimensiones, la similitud coseno se reduce al producto escalar, lo que simplifica el cómputo.
-
-Este enfoque presenta ventajas claras en el dominio médico: captura equivalencias semánticas de forma automática, de modo que una consulta que contiene "shortness of breath" recupera correctamente fragmentos que emplean "dyspnea", sin necesidad de expansión de consultas ni diccionarios de sinónimos. El modelo es también robusto a la variación estilística entre editores de Wikipedia, que utilizan terminología heterogénea para describir los mismos fenómenos clínicos [1, §7.1.2].
-
-Sin embargo, la recuperación densa pura adolece de limitaciones relevantes para el dominio médico. Términos clínicos muy precisos y poco frecuentes —como "Koplik spots", "petechiae" o "haemoptysis"— pueden no estar bien representados en el espacio latente de un modelo de embeddings de propósito general, de forma que su ocurrencia exacta en un fragmento no se traduce en una puntuación alta. Además, el modelo no tiene en cuenta la frecuencia de término: un fragmento que menciona "fever" una sola vez recibe una representación vectorial similar a otro que lo menciona veinte veces si el contexto circundante es parecido. Por último, el proceso de embedding de todo el corpus en tiempo de indexación tiene un coste computacional no despreciable al servirse a través de un modelo neuronal local.
+La clase de referencia `SINE_rag` implementa recuperación densa mediante embeddings `bge-base-en-v1.5-gguf` (768 dimensiones, L2-normalizados) con similitud coseno, que se reduce al producto escalar [1, §7.1.2]. Captura equivalencias semánticas automáticamente ("shortness of breath" → "dyspnea"), pero no discrimina por frecuencia del término y puede penalizar términos clínicos raros poco frecuentes en el corpus de preentrenamiento.
 
 ### 3.2 Mejora implementada: recuperación híbrida BM25 + embedding coseno
 
-La principal mejora respecto al sistema de referencia es la introducción de un modo de recuperación híbrida que combina la puntuación de BM25 (Okapi BM25) con la similitud coseno sobre embeddings densos. La motivación es la complementariedad de los dos componentes: el reto de recuperación en RAGMED presenta simultáneamente un desafío léxico y un desafío semántico [1, §7.4, p. 267].
-
-Por un lado, los artículos de Wikipedia sobre enfermedades emplean vocabulario clínico preciso y estandarizado. Cuando la consulta del usuario contiene un término específico —"haemoptysis", "petechiae", "cyanosis"— la señal más discriminativa es la coincidencia léxica exacta en la sección de síntomas del artículo correspondiente. BM25 sobresale en este escenario: su componente de frecuencia inversa de documento (IDF) asigna un peso muy elevado a los términos raros y altamente discriminativos, y su parámetro de saturación de frecuencia de término (`k1`) impide que un fragmento largo que menciona repetidamente un síntoma común supere a un fragmento más específico con variedad de síntomas. La normalización por longitud (`b`) es igualmente necesaria porque las secciones de Wikipedia varían notablemente en extensión: un párrafo inicial puede tener tres oraciones, mientras que una sección de síntomas puede ocupar varios párrafos [1, §7.2.2, pp. 250–252].
-
-Por otro lado, los usuarios que describen sus síntomas no siempre emplean terminología clínica. "Difficulty breathing" o "shortness of breath" son descripciones coloquiales del fenómeno que los artículos médicos denominan "dyspnea". "Yellowing of the skin" corresponde a "jaundice". Un sistema BM25 puro asignaría puntuación cero a estos pares de términos no coincidentes. Los embeddings densos resuelven exactamente esta brecha semántica: el modelo `bge-base-en-v1.5-gguf` coloca en regiones próximas del espacio vectorial las expresiones que denotan el mismo fenómeno, independientemente de la forma superficial.
+La principal mejora es la introducción de recuperación híbrida BM25 + coseno. Los dos componentes son complementarios: BM25 (Okapi BM25) sobresale cuando la consulta contiene terminología clínica exacta ("haemoptysis", "petechiae") gracias a su IDF y saturación de frecuencia de término; los embeddings densos capturan equivalencias semánticas cuando el usuario emplea lenguaje coloquial ("shortness of breath" → "dyspnea", "yellowing of the skin" → "jaundice") [1, §7.4, p. 267].
 
 La función de puntuación híbrida implementada en `RAGMED_rag.retrieve_function` combina ambas señales mediante una suma ponderada:
 
@@ -171,13 +175,13 @@ La implementación utiliza la variante `BM25Okapi` de la biblioteca `rank_bm25` 
 
 *Tabla 1: Funciones de similitud implementadas en RAGMED_rag y su adecuación al dominio médico.*
 
-La similitud euclidiana, definida como $1/(1+d_{\text{L2}})$, produce puntuaciones en el intervalo $(0, 1]$ y captura la misma señal semántica que el coseno cuando los vectores están L2-normalizados, con una degradación de rendimiento marginal que no justifica su preferencia sobre el coseno. La similitud de Jaccard opera sobre conjuntos de tokens únicos sin ponderación, lo que la priva de discriminación: el término "fever" (muy frecuente entre enfermedades) contribuye exactamente igual que "xerostomia" (altamente discriminativo), y la ausencia de señal semántica la convierte en la opción más débil de las cuatro para este dominio [1, §7.1.1, pp. 235–237]. Ambas funciones se incluyen con fines comparativos en la evaluación de la sección 4.
+La euclidiana captura la misma señal que el coseno con vectores L2-normalizados; la Jaccard opera sobre conjuntos de tokens sin ponderación y es la opción más débil al dar el mismo peso a "fever" (frecuente) que a "haemoptysis" (discriminativo) [1, §7.1.1]. Ambas se incluyen con fines comparativos.
 
 ### 3.4 Estrategia de chunking y parámetros de configuración
 
 A diferencia del sistema de referencia, que trata cada línea del fichero de corpus como un fragmento independiente, `RAGMED_rag` implementa una estrategia de fragmentación a nivel de sección. El método `_parse_chunks` analiza el fichero `diseases.txt` e identifica los bloques de enfermedad por su patrón de encabezado (`{Nombre}\n{'='*n}\n`); a continuación, `_extract_disease_chunks` genera hasta cuatro fragmentos por enfermedad, correspondientes a las secciones Lead, Signs and symptoms, Causes y Treatment. Cada fragmento se prefija con el nombre de la enfermedad siguiendo el patrón `{Nombre de la enfermedad} — {Sección}: {texto}`, lo que garantiza que el modelo de lenguaje disponga siempre de contexto para atribuir los síntomas a su enfermedad correspondiente.
 
-La fragmentación a nivel de sección ofrece una ventaja de precisión: cuando el usuario consulta por una lista de síntomas, el fragmento de "Signs and symptoms" de la enfermedad relevante contendrá exactamente el texto que describe esos síntomas, sin el ruido de la información etiológica o terapéutica que incluiría un bloque completo de enfermedad. Esta granularidad facilita tanto la recuperación BM25 (el IDF favorece los términos que aparecen en pocas secciones de síntomas) como la recuperación densa (el embedding de un fragmento temáticamente coherente es más representativo que el de un bloque heterogéneo). Los fragmentos cuyo texto es vacío o igual a `(No information available.)` se descartan en el momento de la construcción del corpus, lo que evita que fragmentos sin contenido consuman posiciones en el ranking de recuperación.
+La fragmentación por sección mejora la precisión: el fragmento de "Signs and symptoms" contiene solo el texto relevante para la consulta, sin ruido etiológico o terapéutico. Los fragmentos vacíos o con `(No information available.)` se descartan para no consumir posiciones en el ranking.
 
 Los parámetros principales del sistema se recogen en la Tabla 2:
 
@@ -259,7 +263,7 @@ Los resultados obtenidos tras ejecutar el script de evaluación (`Sistema/ragmed
 
 La evaluación arrojó una puntuación global de **17,5/30 (58,3 %)**, con una distribución claramente bimodal: tres preguntas obtuvieron la máxima puntuación (Q1, Q3, Q7) y tres obtuvieron puntuación casi nula (Q6, Q9, Q10).
 
-**Fortalezas del sistema.** El sistema funciona de forma óptima cuando los síntomas de la consulta usan vocabulario coincidente con el del corpus. En los casos de *common cold* (Q1), *asthma* (Q3) y *pneumonia* (Q7), el fragmento de "Signs and symptoms" correspondiente alcanzó la primera posición del ranking con puntuaciones superiores a 0,85. En estos casos, la función híbrida supera claramente a la recuperación puramente semántica, porque el componente BM25 refuerza la coincidencia de términos exactos (por ejemplo, "wheezing", "shortness of breath", "chest tightness" en asma), mientras que el componente coseno captura la coherencia semántica general.
+**Fortalezas del sistema.** El sistema funciona de forma óptima cuando los síntomas de la consulta coinciden léxicamente con el corpus. En Q1, Q3 y Q7, el fragmento correcto alcanzó la primera posición con puntuaciones >0,85, donde el componente BM25 refuerza términos exactos ("wheezing", "chest tightness") y el coseno captura coherencia semántica.
 
 **Fallos de recuperación.** Se identificaron dos patrones de fallo:
 
@@ -271,8 +275,6 @@ La evaluación arrojó una puntuación global de **17,5/30 (58,3 %)**, con una d
 
 **Alucinación puntual.** En Q5 (gout), el modelo cometió el error factual "allopurinol (Zyrtec)", confundiendo el nombre comercial de la cetirizina (antihistamínico) con el del alopurinol. Este tipo de error muestra que el modelo de 1B parámetros mezcla en ocasiones conocimiento de preentrenamiento con el contexto recuperado en detalles específicos (nombres comerciales de fármacos).
 
-**Caso especial: Diabetes mellitus.** Aunque el corpus carece de un artículo dedicado a *Diabetes mellitus* como entrada principal, el sistema respondió adecuadamente a consultas con síntomas de diabetes tipo 2 durante las pruebas informales previas a la evaluación. Los fragmentos recuperados procedían de otras enfermedades que mencionan la diabetes como comorbilidad, y el modelo sintetizó una respuesta coherente. Este resultado ilustra la capacidad del paradigma RAG de integrar información distribuida en el corpus.
-
 **Recomendaciones de mejora.** Aumentar `top_n` de 5 a 10 fragmentos recuperados podría reducir los fallos en enfermedades con síntomas genéricos. La aplicación de query expansion —añadiendo sinónimos clínicos a las consultas en lenguaje coloquial— también mejoraría el componente BM25 de la recuperación. A nivel del módulo de generación, un modelo más grande (≥3B parámetros) aumentaría la fidelidad al contexto y reduciría las alucinaciones puntuales.
 
 ---
@@ -283,9 +285,9 @@ Para obtener el punto opcional de la práctica se realizaron dos experimentos co
 
 ### 5.1 Comparación de modelos generativos (T4.1)
 
-Se comparó el modelo base `Llama-3.2-1B-Instruct-GGUF` (1,24 B parámetros, 807 MB en disco) con `llama3.2:3b` (3 B parámetros, 2,0 GB en disco). Las 10 preguntas de evaluación se lanzaron con configuración idéntica sobre ambos modelos. Los resultados se muestran en la Tabla 3.
+Se comparó el modelo base `Llama-3.2-1B-Instruct-GGUF` (1,24 B parámetros, 807 MB en disco) con `llama3.2:3b` (3 B parámetros, 2,0 GB en disco). Las 10 preguntas de evaluación se lanzaron con configuración idéntica sobre ambos modelos. Los resultados se muestran en la Tabla 6.
 
-**Tabla 3.** Puntuaciones por pregunta: modelo 1B vs modelo 3B.
+**Tabla 6.** Puntuaciones por pregunta: modelo 1B vs modelo 3B.
 
 | # | Enfermedad | 1B Total | 3B Total |
 |---|------------|:--------:|:--------:|
@@ -301,19 +303,13 @@ Se comparó el modelo base `Llama-3.2-1B-Instruct-GGUF` (1,24 B parámetros, 807
 | Q10 | Tuberculosis | 0,5/3 | 0,5/3 |
 | **Total** | | **17,5/30** | **22/30** |
 
-El modelo 3B mejora **+4,5 puntos** respecto al 1B (73,3% vs 58,3%). Las ganancias se concentran en preguntas donde la recuperación es correcta pero el modelo generativo necesita conocimiento médico para sintetizar la respuesta:
-
-- **Q6 Hypothyroidism (+1,5):** El sistema de recuperación falla en ambos casos (los fragmentos recuperados no contienen el artículo de hipotiroidismo). Sin embargo, el modelo 3B identifica correctamente la enfermedad apoyándose en conocimiento paramétrico propio, mientras que el 1B no consigue nominarla. Este resultado confirma que modelos más grandes compensan mejor los fallos de recuperación.
-- **Q5 Gout (+1):** El modelo 1B alucinó el nombre "allopurinol (Zyrtec)" confundiendo dos fármacos distintos. El modelo 3B no comete este error.
-- **Q4 Migraine (+0,5) y Q8 RA (+0,5):** El 3B muestra mayor coherencia al integrar fragmentos de distintas enfermedades en el contexto.
-
-Los fallos en Q9 (Malaria) y Q10 (Tuberculosis) persisten en ambos modelos porque la causa es un fallo de recuperación: el artículo de la enfermedad esperada no aparece entre los top-5 fragmentos. Este problema requiere mejorar el indexado, no el modelo generativo.
+El modelo 3B mejora **+4,5 puntos** (73,3% vs 58,3%). Las ganancias se concentran en: Q6 (+1,5) donde el 3B recupera la enfermedad desde conocimiento paramétrico al fallar la recuperación; Q5 (+1) al evitar la alucinación "allopurinol (Zyrtec)"; Q4 y Q8 (+0,5 c/u) por mayor coherencia al integrar fragmentos mixtos. Los fallos de Q9 y Q10 persisten en ambos modelos porque su causa es un fallo de recuperación (el artículo esperado no está en el top-5), que requiere mejorar el indexado.
 
 ### 5.2 Comparación de tamaños de contexto por fragmento (T4.2)
 
 El parámetro `max_context_chars` controla cuántos caracteres de cada fragmento recuperado se incluyen en el prompt del LLM. Se compararon tres valores: 500 (~75 palabras), 1 500 (baseline, ~230 palabras) y 3 000 (~460 palabras). El ranking de recuperación es idéntico en los tres casos.
 
-**Tabla 4.** Puntuaciones totales por configuración de contexto.
+**Tabla 7.** Puntuaciones totales por configuración de contexto.
 
 | max-context-chars | P | C | V | Total |
 |:-----------------:|:-:|:-:|:-:|:-----:|
@@ -321,15 +317,7 @@ El parámetro `max_context_chars` controla cuántos caracteres de cada fragmento
 | 1 500 (baseline) | 6,5 | 5,0 | 6,0 | **17,5/30** |
 | 3 000 | 6,0 | 4,0 | 5,5 | **15,5/30** |
 
-Los resultados revelan una tendencia contraintuitiva: **más contexto no implica mejores respuestas**. Los tres valores producen totales similares (17,5 / 17,5 / 15,5), y el más alto resulta ser el peor.
-
-El análisis por pregunta explica este fenómeno. Cuando el ranking de recuperación es bueno, los fragmentos correctos aparecen en las primeras posiciones y ampliar el contexto añade información redundante que el modelo trata de integrar generando respuestas más largas y con más alternativas innecesarias (Q1, Q3, Q5 con 3 000 chars).
-
-Cuando el ranking es mediocre, la situación empeora: los fragmentos erróneos en las posiciones altas reciben 3 000 chars de descripción detallada que el modelo prioriza sobre el fragmento correcto en posición baja. En Q8 (Rheumatoid arthritis), los dos primeros fragmentos son de JIA (Juvenile Idiopathic Arthritis); con 3 000 chars el modelo genera una descripción exhaustiva de JIA eclipsando completamente el fragmento de RA en la posición 5. En Q6 (Hypothyroidism), el fragmento de Hyperkalemia en posición 2 con 3 000 chars lleva al modelo a diagnosticar "Hypokalemia" de forma errónea.
-
-El resultado paradójico de Q4 (Migraine) —donde 500 chars supera al baseline— ilustra el efecto contrario: los tres fragmentos de Arnold–Chiari malformation en posiciones 2–4 son perjudiciales cuando el modelo los lee enteros (1 500 chars), pero con 500 chars sólo muestra el encabezado del artículo, que el modelo ignora correctamente.
-
-La conclusión es que el valor óptimo de `max_context_chars` depende de la calidad del ranking de recuperación: con un ranking perfecto conviene maximizar el contexto, pero con los fallos actuales (fragmentos irrelevantes entre los top-5), el valor baseline de 1 500 chars ofrece el mejor equilibrio.
+Los resultados revelan una tendencia contraintuitiva: **más contexto no implica mejores respuestas**. Los totales 17,5 / 17,5 / 15,5 muestran que el mayor contexto empeora el resultado. Cuando el ranking es correcto, el contexto adicional es redundante. Cuando el ranking contiene ruido, los 3 000 chars de fragmentos incorrectos dominan el prompt: en Q8, los fragmentos de JIA en las primeras posiciones con 3 000 chars eclipsan el artículo de RA en posición 5; en Q6, el fragmento de Hyperkalemia lleva al modelo a diagnosticar "Hypokalemia" de forma errónea. En Q4 (Migraine), 500 chars funciona mejor porque trunca los fragmentos de Arnold–Chiari antes de que el modelo los procese. La conclusión es que el baseline de 1 500 chars ofrece el mejor equilibrio con el ranking actual.
 
 ---
 

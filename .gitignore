@@ -26,6 +26,9 @@ src/pokemon_list.txt
 # Embedding cache (regenerated on first run, can be several hundred MB)
 *.cache.pkl
 
+# Deliverable zip
+*.zip
+
 # OS
 .DS_Store
 Thumbs.db
