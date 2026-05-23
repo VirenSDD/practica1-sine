@@ -16,7 +16,7 @@ dependencies = [
 ragmed = "ragmed_main:run_ragmed"
 
 [tool.uv]
-package = true
+package = false
 dev-dependencies = [
     "ruff==0.15.13",
     "pytest==9.0.3",
