@@ -7,7 +7,7 @@
 
 ## 1. Introducción
 
-Los sistemas de recuperación aumentada por generación (RAG) combinan tres componentes: un crawler que construye el corpus, un módulo de recuperación de información (IR) que localiza los fragmentos relevantes, y un LLM que genera la respuesta [1]. A diferencia de los LLMs puros, los sistemas RAG anclan las respuestas en el corpus, reduciendo alucinaciones sin necesidad de reentrenar el modelo.
+Los sistemas de recuperación aumentada por generación (RAG) combinan tres componentes: un crawler que construye el corpus, un módulo de recuperación de información (IR) que localiza los fragmentos relevantes, y un LLM que genera la respuesta [7]. A diferencia de los LLMs puros, los sistemas RAG anclan las respuestas en el corpus, reduciendo alucinaciones sin necesidad de reentrenar el modelo.
 
 Como punto de partida se proporcionó un sistema de referencia sobre información de Pokémon extraída de WikiDex [4,5]. Esta práctica extiende ese sistema al dominio médico: RAGMED recibe una lista de síntomas y sugiere posibles enfermedades apoyándose en un corpus de artículos de Wikipedia. El dominio médico es idóneo porque los artículos presentan estructura consistente (síntomas, causas, tratamiento), Wikipedia ofrece cobertura amplia y de libre acceso, y la aplicación tiene utilidad práctica como herramienta de orientación médica general.
 
@@ -350,3 +350,5 @@ Este trabajo ha presentado RAGMED, un sistema de recuperación aumentada por gen
 [5] Ollama, "Ollama — Get up and running with large language models." [Online]. Available: https://ollama.com/. [Accessed: May 2026].
 
 [6] D. Brown, "rank-bm25: A two-line search engine," GitHub. [Online]. Available: https://github.com/dorianbrown/rank_bm25. [Accessed: May 2026].
+
+[7] P. Lewis, E. Perez, A. Piktus et al., "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks," in *Advances in Neural Information Processing Systems (NeurIPS)*, vol. 33, pp. 9459–9474, 2020.

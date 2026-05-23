@@ -23,8 +23,6 @@ Cada pregunta se puntúa en tres métricas, de 0 a 1 con incrementos de 0,5:
 
 ## Tabla de resultados
 
-*(Completar tras ejecutar `Sistema/ragmed_eval.py` y revisar `respuestas_sistema.md`)*
-
 | # | Enfermedad | Precisión | Cobertura | Veracidad | Total (3) |
 |---|------------|:---------:|:---------:|:---------:|:---------:|
 | Q1 | Common cold | 1 | 1 | 1 | **3/3** |
@@ -43,8 +41,6 @@ Cada pregunta se puntúa en tres métricas, de 0 a 1 con incrementos de 0,5:
 ---
 
 ## Análisis por pregunta
-
-*(Completar con observaciones tras revisar `respuestas_sistema.md`)*
 
 ### Q1 — Common cold ✅ (3/3)
 **Recuperación:** Nasopharyngitis y Common cold en posiciones 1 y 2 (0,88 y 0,87). Excelente.  
